@@ -3,6 +3,7 @@
 #include "player.h"
 #include "CPR_Framework.h"
 #include "game/world.h"
+#include "debugutils/debugrenderer.h"
 
 // TODO: find a better place for these constants, or some kind of definition scheme
 namespace

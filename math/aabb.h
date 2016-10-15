@@ -42,6 +42,9 @@ inline cAABB::cAABB(const cVector3& aabb_min, const cVector3& aabb_max)
 	: mMin(aabb_min)
 	, mMax(aabb_max)
 {
+	CPR_assert((mMin.x < mMax.x)
+		&& (mMin.y < mMax.y)
+		&& (mMin.z < mMax.z), "incorrect min/max vectors provided");
 }
 
 //----------------------------------------------------------------------------

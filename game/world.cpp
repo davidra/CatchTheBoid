@@ -281,8 +281,8 @@ bool cWorld::ParseCityMatrix(const char* city_file, tCityMatrix& city_matrix) co
 cAABB cWorld::ComputeAABBForRowColumn(unsigned row, unsigned column, float height) const
 {
 	// Negating z so the representation on the file obeys intuitive positive Z axis (i.e., the first row would be the one with the greatest z value)
-	const cVector3 aabb_min(column * BLOCK_SIZE, 0.0f, row * -BLOCK_SIZE);
-	const cVector3 aabb_max(aabb_min.x + BUILDING_SIDE_SIZE, height, aabb_min.z - BUILDING_SIDE_SIZE);
+	const cVector3 aabb_min(column * BLOCK_SIZE, 0.0f, (row * -BLOCK_SIZE) - BUILDING_SIDE_SIZE);
+	const cVector3 aabb_max(aabb_min.x + BUILDING_SIDE_SIZE, height, aabb_min.z + BUILDING_SIDE_SIZE);
 
 	return cAABB(aabb_min, aabb_max);
 }
@@ -306,9 +306,9 @@ bool cWorld::FindCollidingBuilding2D(const cVector2& start_pos, const cVector2& 
 	// Traverse the blocks based on grid distance to the initial block
 	const int row_delta = end_row - start_row;
 	const int column_delta = end_column - start_column;
-	const int increment_row = (row_delta == 0) ? 1 : Sign(row_delta);
-	const int increment_column = (column_delta == 0) ? 1 : Sign(column_delta);
-	const int max_blocks_considered = abs(row_delta * column_delta) + 1;
+	const int increment_row = (row_delta >= 0) ? 1 : -1;
+	const int increment_column = (column_delta >= 0) ? 1 : -1;
+	const int max_blocks_considered = abs((row_delta + increment_row) * (column_delta + increment_column));
 	for (int current_block_distance = 0, blocks_considered = 0; blocks_considered < max_blocks_considered; ++current_block_distance)
 	{
 		for (int i = current_block_distance; i >= 0; --i)

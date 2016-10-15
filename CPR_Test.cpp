@@ -3,6 +3,7 @@
 #include "CPR_Framework.h"
 #include "game/world.h"
 #include "game/player.h"
+#include "debugutils/debugrenderer.h"
 
 // TODO: Delete these, probably
 float	g_angle = 0.0f;
@@ -56,7 +57,10 @@ void OnShutdown()
 //----------------------------------------------------------------------------
 void OnUpdate( float _deltaTime )
 {
-	gPlayer.Update(_deltaTime);
+	if (_deltaTime > 0.0f)
+	{
+		gPlayer.Update(_deltaTime);
+	}
 }
 
 //----------------------------------------------------------------------------

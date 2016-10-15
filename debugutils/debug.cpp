@@ -2,8 +2,6 @@
 
 #include "debug.h"
 
-#include "game\modelrepository.h"
-
 //----------------------------------------------------------------------------
 namespace Debug
 {
@@ -72,31 +70,5 @@ namespace Debug
 
 		::OutputDebugStringA(buffer);
 		printf("%s", buffer);
-	}
-
-	//----------------------------------------------------------------------------
-	void cRenderer::Render()
-	{
-		for (const tDebugRenderEntry& entry : mRenderEntries)
-		{
-			CPR_assert(entry.mMesh != nullptr, "Invalid model!");
-
-			entry.mMesh->Render(entry.mWorldPos, cVector3::ZERO(), entry.mScale, entry.mColor);
-		}
-
-		mRenderEntries.clear();
-	}
-
-	//----------------------------------------------------------------------------
-	void cRenderer::AddSphere(const cVector3& pos, float radius, const cColor& color)
-	{
-		mRenderEntries.emplace_back(pos, cVector3(radius * 2.0f), color, ModelRepo::GetModel(MID_SPHERE));
-	}
-
-	//----------------------------------------------------------------------------
-	cRenderer::cRenderer()
-	{
-		// Reserve some reasonable initial size to reduce runtime allocations
-		mRenderEntries.reserve(20);
 	}
 }
