@@ -8,6 +8,12 @@
 namespace Debug
 {
 	//----------------------------------------------------------------------------
+	void cRenderer::Update(float )
+	{
+		mRenderEntries.clear();
+	}
+
+	//----------------------------------------------------------------------------
 	void cRenderer::Render()
 	{
 		for (const tDebugRenderEntry& entry : mRenderEntries)
@@ -16,8 +22,6 @@ namespace Debug
 
 			entry.mMesh->Render(entry.mWorldPos, cVector3::ZERO(), entry.mScale, entry.mColor);
 		}
-
-		mRenderEntries.clear();
 	}
 
 	//----------------------------------------------------------------------------

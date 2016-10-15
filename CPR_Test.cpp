@@ -57,8 +57,12 @@ void OnShutdown()
 //----------------------------------------------------------------------------
 void OnUpdate( float _deltaTime )
 {
+	// TODO: Some update times are coming with 0, investigate what this means to the actual frametime
 	if (_deltaTime > 0.0f)
 	{
+		// The debug renderer update will clear debug entries, so make sure it happens before we can add any this frame
+		Debug::cRenderer::Get().Update(_deltaTime);
+
 		gPlayer.Update(_deltaTime);
 	}
 }

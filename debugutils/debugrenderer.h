@@ -22,6 +22,7 @@ namespace Debug
 			return *sDebugRendererInstance;
 		}
 
+		void Update(float elapsed);
 		void Render();
 
 		void AddSphere(const cVector3& pos, float radius, const cColor& color);

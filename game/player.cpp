@@ -39,7 +39,6 @@ void cPlayer::Update(float elapsed)
 
 	const cVector3 collision = cWorld::GetInstance()->StepPlayerCollision(mPos + cVector3(0.0f, PLAYER_HEIGHT, 0.0f), forward_dir * 10000, PLAYER_RADIUS, elapsed);
 	Debug::cRenderer::Get().AddSphere(collision, 1.0f, TCOLOR_RED);
-	Debug::WriteLine("collision: (%f, %f, %f). ", collision.x, collision.y, collision.z);
 
 	mLookAt = ComputeLookAt();
 
