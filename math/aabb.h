@@ -6,9 +6,21 @@ by David Ramos
 #pragma once
 
 //----------------------------------------------------------------------------
+class cAABB2D
+{
+public:
+	cAABB2D(const cVector2& p);
+	cAABB2D(const cVector2& aabb_min, const cVector2& aabb_max);
+
+	cVector2 mMin;
+	cVector2 mMax;
+};
+
+//----------------------------------------------------------------------------
 class cAABB
 {
 public:
+	cAABB() {}
 	cAABB(const cVector3& p);
 	cAABB(const cVector3& aabb_min, const cVector3& aabb_max);
 
@@ -37,17 +49,6 @@ inline cAABB2D cAABB::GetXZ() const
 {
 	return cAABB2D(cVector2(mMin.x, mMin.z), cVector2(mMax.x, mMax.z));
 }
-
-//----------------------------------------------------------------------------
-class cAABB2D
-{
-public:
-	cAABB2D(const cVector2& p);
-	cAABB2D(const cVector2& aabb_min, const cVector2& aabb_max);
-
-	cVector2 mMin;
-	cVector2 mMax;
-};
 
 //----------------------------------------------------------------------------
 inline cAABB2D::cAABB2D(const cVector2& p)

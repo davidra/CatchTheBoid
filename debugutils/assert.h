@@ -3,8 +3,6 @@
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 #pragma once
 
-#include "debugutils\debug.h"
-
 #if defined _DEBUG
 	#define CPR_assert(expr, ...) \
 			do																		\

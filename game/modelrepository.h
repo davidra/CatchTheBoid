@@ -14,6 +14,7 @@
 #define _MODEL_DATA(name,...) MID_##name,
 enum eModelId
 {
+	MID_INVALID,
 	MODEL_TUPLES
 };
 #undef _MODEL_DATA
@@ -23,7 +24,7 @@ enum eModelId
 
 namespace ModelRepo
 { 
-	Mesh* GetModel(eModelId mid)
+	inline Mesh* GetModel(eModelId mid)
 	{
 
 		switch (mid)
@@ -31,7 +32,7 @@ namespace ModelRepo
 			MODEL_TUPLES
 			default:
 			{
-				CPR_assert(false, "Unknown model type");
+				CPR_assert(false, "Unknown model type %d", mid);
 				return nullptr;
 			}
 		}

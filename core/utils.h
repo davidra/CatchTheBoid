@@ -5,23 +5,15 @@
 
 #include "core/base.h"
 
-// TODO: Rethink this, probably the Core namespace is not needed, so remove it
-namespace Core
+//----------------------------------------------------------------------------
+template <class T>
+static T Clamp(const T& low, const T& value, const T& high)
 {
-	using std::move;
-	using std::forward;
-	using std::begin;
-	using std::end;
-
-	template <class T>
-	static T Clamp(const T& low, const T& value, const T& high)
-	{
-		return (value < low)
-			? low
-			: (value > high)
-				? high
-				: value;
-	}
+	return (value < low)
+		? low
+		: (value > high)
+			? high
+			: value;
 }
 
 //----------------------------------------------------------------------------

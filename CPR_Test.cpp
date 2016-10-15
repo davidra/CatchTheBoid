@@ -40,21 +40,17 @@ extern struct IDirect3DDevice9 * g_pDevice;
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 
 // TODO: Rethink this
-cWorld gWorld;
 cPlayer gPlayer;
 
 //----------------------------------------------------------------------------
 void OnInit()
 {
-	SetCapture(GetActiveWindow());
-
-	gWorld.Init("resources/city.txt");
+	cWorld::InitInstance("resources/city.txt");
 }
 
 //----------------------------------------------------------------------------
 void OnShutdown()
 {
-	ReleaseCapture();
 }
 
 //----------------------------------------------------------------------------
@@ -66,6 +62,7 @@ void OnUpdate( float _deltaTime )
 //----------------------------------------------------------------------------
 void OnRender()
 {
-	gWorld.Render();
+	cWorld::GetInstance()->Render();
 	gPlayer.Render();
+	Debug::cRenderer::Get().Render();
 }

@@ -10,6 +10,7 @@ namespace
 	static /*const*/ float PLAYER_SPEED = 3.0f;
 	static /*const*/ float PLAYER_HEIGHT = 1.8f;
 	static /*const*/ float MOUSE_SENSITIVY = TO_RADIANS(0.2f); // 0.2 degrees per-pixel
+	static /*const*/ float PLAYER_RADIUS = 0.5f;
 }
 
 //----------------------------------------------------------------------------
@@ -27,9 +28,20 @@ void cPlayer::Update(float elapsed)
 {
 	mPos += ComputeLinearVelocity() * elapsed;
 
+	const cVector3 height(0.0f, PLAYER_HEIGHT, 0.0f);
+
+	// Test
+	const cVector3 forward_dir = cVector3::ZAXIS().RotateAroundY(mYaw);
+	// Debug::cRenderer::Get().AddSphere(mPos + height + (forward_dir * 2.0f), PLAYER_RADIUS, TCOLOR_YELLOW);
+
+	// Debug::WriteLine("Player pos: (%f, %f, %f). Forward dir: (%f, %f, %f)", mPos.x, mPos.y, mPos.z, forward_dir.x, forward_dir.y, forward_dir.z);
+
+	const cVector3 collision = cWorld::GetInstance()->StepPlayerCollision(mPos + cVector3(0.0f, PLAYER_HEIGHT, 0.0f), forward_dir * 10000, PLAYER_RADIUS, elapsed);
+	Debug::cRenderer::Get().AddSphere(collision, 1.0f, TCOLOR_RED);
+	Debug::WriteLine("collision: (%f, %f, %f). ", collision.x, collision.y, collision.z);
+
 	mLookAt = ComputeLookAt();
 
-	const cVector3 height(0.0f, PLAYER_HEIGHT, 0.0f);
 	Camera::LookAt(mPos + height, mLookAt);
 }
 
@@ -80,7 +92,7 @@ cVector3 cPlayer::ComputeLookAt()
 	mPitch -= mouse_delta.y;
 
 	static const float MAX_PITCH = TO_RADIANS(85.0f);
-	mPitch = Core::Clamp(-MAX_PITCH, mPitch, MAX_PITCH);
+	mPitch = Clamp(-MAX_PITCH, mPitch, MAX_PITCH);
 
 	return mPos + cVector3(0.0f, mPos.y + sin(mPitch) + PLAYER_HEIGHT, cos(mPitch)).RotateAroundY(mYaw);
 }

@@ -13,6 +13,7 @@ public:
 	// using D3DXVECTOR3::D3DXVECTOR3;
 
 	cVector3() {}
+	cVector3(float val) : D3DXVECTOR3(val, val, val) {}
 	cVector3(const D3DXVECTOR3& other) : D3DXVECTOR3(other) {}
 	cVector3(float x, float y, float z) : D3DXVECTOR3(x, y, z) {}
 

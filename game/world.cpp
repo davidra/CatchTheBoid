@@ -3,6 +3,8 @@
 #include "world.h"
 #include "game\modelrepository.h"
 
+std::unique_ptr<cWorld> cWorld::sWorldInstance;
+
 namespace
 {
 	bool sGenerateRandomCity = false;
@@ -11,6 +13,13 @@ namespace
 	static const float BUILDING_SIDE_SIZE = 4.0f;
 	static const float GROUND_HEIGHT = 0.1f;
 	static const float BLOCK_SIZE = BUILDING_SIDE_SIZE + SPACE_BETWEEN_BUILDINGS;
+}
+
+//----------------------------------------------------------------------------
+void cWorld::InitInstance(const char* init_file)
+{
+	sWorldInstance = std::unique_ptr<cWorld>(new cWorld);
+	sWorldInstance->Init(init_file);
 }
 
 //----------------------------------------------------------------------------
@@ -125,7 +134,6 @@ void cWorld::Render()
 	};
 }
 
-/*
 //----------------------------------------------------------------------------
 // We can make a lot of assumptions here to simplify the collision algorithm due the requirements of the test (AABB blocks equally spaced)
 //
@@ -133,8 +141,8 @@ void cWorld::Render()
 // bullet: reflect). This can recurse for bullets that are reflected. The player will not collide after projecting a collision
 cVector3 cWorld::StepPlayerCollision(const cVector3& cur_pos, const cVector3& linear_velocity, float radius, float elapsed) const
 {
-	if (linear_velocity.IsZero())
-		return;
+	if (linear_velocity.IsZero() || (elapsed == 0.0f))
+		return cur_pos;
 
 	const cVector3 desired_pos = cur_pos + (linear_velocity * elapsed);
 
@@ -144,14 +152,20 @@ cVector3 cWorld::StepPlayerCollision(const cVector3& cur_pos, const cVector3& li
 	cVector2 desired_pos_2D(desired_pos.GetXZ());
 
 	// project the desired-current vector in the X axis and find out how many columns it encompasses
-	ComputeBlocksIn2DAABB();
+	cVector2 colliding_pos;
+	cAABB colliding_building;
+	if (FindCollidingBuilding2D(cur_pos_2D, desired_pos_2D, radius, colliding_building, colliding_pos))
+	{
+		//TODO: remove, this is just a test for now
+		return cVector3(colliding_pos.x, desired_pos.y, colliding_pos.y);
+	}
 
+	return desired_pos;
 
 	// Collide with world boundaries
 
 	// Collide with ground surfaces
 }
-*/
 
 //----------------------------------------------------------------------------
 bool cWorld::ParseCityMatrix(const char* city_file, tCityMatrix& city_matrix) const
@@ -273,34 +287,6 @@ cAABB cWorld::ComputeAABBForRowColumn(unsigned row, unsigned column, float heigh
 	return cAABB(aabb_min, aabb_max);
 }
 
-/*
-//----------------------------------------------------------------------------
-bool cWorld::ComputeBlocksInSegment(float start, float end, float enlarge_by, int& start_idx, int& end_idx)
-{
-	if (start > end)
-	{
-		std::swap(start, end);
-	}
-
-	start -= enlarge_by;
-	end += enlarge_by;
-
-	static const int BUCKET_SIZE = SPACE_BETWEEN_BUILDINGS + BUILDING_SIDE_SIZE;
-	int first_bucket_idx = start / BUCKET_SIZE;
-	const int last_bucket_idx = end / BUCKET_SIZE;
-
-	if ((fmodf(start, BUCKET_SIZE)) > BUILDING_SIDE_SIZE)
-	{
-		// This means min_x lies in the space between buildings, so we can ignore this column, we won't collide with it
-		++first_bucket_idx;
-	}
-
-	for (int column_idx = leftmost_column; column_idx <= rightmost_column; ++column_idx)
-	{
-
-	}
-}*/
-
 //----------------------------------------------------------------------------
 bool cWorld::FindCollidingBuilding2D(const cVector2& start_pos, const cVector2& desired_pos, float radius, cAABB& out_colliding_building, cVector2& out_colliding_pos) const
 {
@@ -310,138 +296,40 @@ bool cWorld::FindCollidingBuilding2D(const cVector2& start_pos, const cVector2& 
 
 	bool collision_found = false;
 
-	while (!collision_found)
+	// Find the starting and ending blocks 
+	const int start_row = Clamp<int>(0, start_pos.y / -BLOCK_SIZE, mCityMatrix.mRows - 1);
+	const int start_column = Clamp<int>(0, start_pos.x / BLOCK_SIZE, mCityMatrix.mColumns - 1);
+
+	const int end_row = Clamp<int>(0, desired_pos.y / -BLOCK_SIZE, mCityMatrix.mRows - 1);
+	const int end_column = Clamp<int>(0, desired_pos.x / BLOCK_SIZE, mCityMatrix.mColumns - 1);
+
+	// Traverse the blocks based on grid distance to the initial block
+	const int row_delta = end_row - start_row;
+	const int column_delta = end_column - start_column;
+	const int increment_row = (row_delta == 0) ? 1 : Sign(row_delta);
+	const int increment_column = (column_delta == 0) ? 1 : Sign(column_delta);
+	const int max_blocks_considered = abs(row_delta * column_delta) + 1;
+	for (int current_block_distance = 0, blocks_considered = 0; blocks_considered < max_blocks_considered; ++current_block_distance)
 	{
-		// Find the block where the start pos lies
-		const cAABB& block_building_3D = GetBuildingOfBlockAt2DPos(start_pos);
-		const cAABB2D block_building = block_building_3D.GetXZ();
+		for (int i = current_block_distance; i >= 0; --i)
+		{
+			const int row = start_row + (increment_row * i);
+			const int column = start_column + (increment_column * (current_block_distance - i));
 
-		// Get the axis-aligned lines defined by the building with what we can collide
-		static const float INVALID_LINE = FLT_MAX;
-		float y_aligned_line = INVALID_LINE;
-		if (start_pos.x <= block_building.mMin.x)
-		{
-			y_aligned_line = block_building.mMin.x;
-		}
-		else if (start_pos.x >= block_building.mMax.x)
-		{
-			y_aligned_line = block_building.mMax.x;
-		}
-		else
-		{
-			// We are between the vertical lines defined by this building. This means we are either inside of 
-			// the building or that won't collide with the vertical faces. Don't test
-		}
-
-		float x_aligned_line = INVALID_LINE;
-		if (start_pos.y <= block_building.mMin.y)
-		{
-			x_aligned_line = block_building.mMin.y;
-		}
-		else if (start_pos.y >= block_building.mMax.y)
-		{
-			x_aligned_line = block_building.mMax.y;
-		}
-		else
-		{
-			// We are between the horizontal lines defined by this building. This means we are either inside of 
-			// the building or that won't collide with the horizontal faces. Don't test against this block's building
-		}
-
-		if ((x_aligned_line == INVALID_LINE) && (y_aligned_line == INVALID_LINE))
-		{
-			// We are completely inside the building, skip this block
-		}
-		else
-		{
-			float intersect_x = INVALID_INTERSECT_RESULT;
-			if (x_aligned_line != INVALID_LINE)
+			const bool row_in_range = ((row - start_row) * increment_row) <= (row_delta * increment_row);
+			const bool column_in_range = ((column - start_column) * increment_column) <= (column_delta * increment_column);
+			if (row_in_range && column_in_range)
 			{
-				intersect_x = IntersectRayWithXAxisAlignedLine2D(start_pos, movement_dir, x_aligned_line);
-			}
+				const cAABB& building_block = mCityMatrix[row][column];
+				collision_found = TestCollisionWithBlock2D(building_block, start_pos, desired_pos, movement_dir, movement_length, radius, out_colliding_building, out_colliding_pos);
 
-			float intersect_y = INVALID_INTERSECT_RESULT;
-			if (y_aligned_line != INVALID_LINE)
-			{
-				intersect_y = IntersectRayWithYAxisAlignedLine2D(start_pos, movement_dir, y_aligned_line);
-			}
-
-			if (intersect_x < intersect_y)
-			{
-				const cVector2 intersect_point(start_pos + (movement_dir * intersect_x));
-
-				if (intersect_x > movement_length)
+				// TODO: We may want not to early out as soon as we find a 2D collision for when we want all the candidates for a 3D test. For now, start earlying out
+				if (collision_found)
 				{
-					// The collision is beyond our reach... or is it? Let's consider the radius
-					if (DistanceToXAxisAlignedLine2D(desired_pos, x_aligned_line) <= radius)
-					{
-						// That's a hit
-						out_colliding_building = block_building_3D;
-						out_colliding_pos = cVector2(desired_pos.x, x_aligned_line);
-						collision_found = true;
-					}
-					else
-					{
-						// we are done here
-						break;
-					}
+					return true;
 				}
-				else
-				{
-					if (IsWithinRange(block_building.mMin.x - radius, intersect_point.x, block_building.mMax.x + radius))
-					{
-						out_colliding_building = block_building_3D;
-						out_colliding_pos = cVector2(Clamp(block_building.mMin.x, intersect_point.x, block_building.mMax.x), intersect_point.y);
-						collision_found = true;
-					}
-					else
-					{
-						// continue from this point
-						movement_length -= intersect_x;
-						start_pos = intersect_point;
-					}
-				}
-			}
-			else if (intersect_y != INVALID_INTERSECT_RESULT)
-			{
-				const cVector2 intersect_point(start_pos + (movement_dir * intersect_y));
 
-				if (intersect_y > movement_length)
-				{
-					// The collision is beyond our reach... or is it? Let's consider the radius
-					if (DistanceToYAxisAlignedLine2D(desired_pos, y_aligned_line) <= radius)
-					{
-						// That's a hit
-						out_colliding_building = block_building_3D;
-						out_colliding_pos = cVector2(y_aligned_line, desired_pos.y);
-						collision_found = true;
-					}
-					else
-					{
-						// we are done here
-						break;
-					}
-				}
-				else
-				{
-					if (IsWithinRange(block_building.mMin.y - radius, intersect_point.y, block_building.mMax.y + radius))
-					{
-						out_colliding_building = block_building_3D;
-						out_colliding_pos = cVector2(intersect_point.x, Clamp(block_building.mMin.y, intersect_point.y, block_building.mMax.y));
-						collision_found = true;
-					}
-					else
-					{
-						// continue from this point
-						movement_length -= intersect_y;
-						start_pos = intersect_point;
-					}
-				}
-			}
-			else
-			{
-				// Could not collide with this block lines, continue from the boundaries of the next block
-
+				++blocks_considered;
 			}
 		}
 	}
@@ -450,9 +338,108 @@ bool cWorld::FindCollidingBuilding2D(const cVector2& start_pos, const cVector2& 
 }
 
 //----------------------------------------------------------------------------
-const cAABB& cWorld::GetBuildingOfBlockAt2DPos(const cVector2& pos) const
+bool cWorld::TestCollisionWithBlock2D(const cAABB& block_building_3D, const cVector2& start_pos, const cVector2& desired_pos, const cVector2& movement_dir, float movement_length, float radius, cAABB& out_colliding_building, cVector2& out_colliding_pos) const
 {
-	const int start_row = Clamp<int>(0, pos.y / -BLOCK_SIZE, mCityMatrix.mRows - 1);
-	const int start_column = Clamp<int>(0, pos.x / BLOCK_SIZE, mCityMatrix.mColumns - 1);
-	return mCityMatrix.mMatrix[start_row][start_column];
+	const cAABB2D block_building = block_building_3D.GetXZ();
+
+	// early out for buildings with height 0 or when the movement_dir is zero
+	if (IsSimilar(block_building_3D.mMax.y, 0.0f) || movement_dir.IsZero())
+	{
+		return false;
+	}
+
+	bool collision_found = false;
+
+	// Get the axis-aligned lines we can collide with from the AABB of the building based on the direction of the test
+	static const float INVALID_LINE = FLT_MAX;
+	float y_aligned_line = INVALID_LINE;
+	if (movement_dir.x > 0.0f)
+	{
+		// left to right
+		y_aligned_line = block_building.mMin.x;
+	}
+	else if (movement_dir.x < 0.0f)
+	{
+		// right to left
+		y_aligned_line = block_building.mMax.x;
+	}
+
+	float x_aligned_line = INVALID_LINE;
+	if (movement_dir.y > 0.0f)
+	{
+		// down to up
+		x_aligned_line = block_building.mMin.y;
+	}
+	else if (movement_dir.y < 0.0f)
+	{
+		// up to down
+		x_aligned_line = block_building.mMax.y;
+	}
+
+	CPR_assert((x_aligned_line != INVALID_LINE) || (y_aligned_line != INVALID_LINE), "Could not select any axis!");
+
+	float intersect_x = INVALID_INTERSECT_RESULT;
+	if (x_aligned_line != INVALID_LINE)
+	{
+		intersect_x = IntersectRayWithXAxisAlignedLine2D(start_pos, movement_dir, x_aligned_line);
+	}
+
+	float intersect_y = INVALID_INTERSECT_RESULT;
+	if (y_aligned_line != INVALID_LINE)
+	{
+		intersect_y = IntersectRayWithYAxisAlignedLine2D(start_pos, movement_dir, y_aligned_line);
+	}
+
+	if (intersect_x < intersect_y)
+	{
+		const cVector2 intersect_point(start_pos + (movement_dir * intersect_x));
+
+		if (intersect_x > movement_length)
+		{
+			// The collision is beyond our reach... or is it? Let's consider the radius
+			if (DistanceToXAxisAlignedLine2D(desired_pos, x_aligned_line) <= radius)
+			{
+				// That's a hit
+				out_colliding_building = block_building_3D;
+				out_colliding_pos = cVector2(desired_pos.x, x_aligned_line);
+				collision_found = true;
+			}
+		}
+		else
+		{
+			if (IsWithinRange(block_building.mMin.x - radius, intersect_point.x, block_building.mMax.x + radius))
+			{
+				out_colliding_building = block_building_3D;
+				out_colliding_pos = cVector2(Clamp(block_building.mMin.x, intersect_point.x, block_building.mMax.x), intersect_point.y);
+				collision_found = true;
+			}
+		}
+	}
+	else if (intersect_y != INVALID_INTERSECT_RESULT)
+	{
+		const cVector2 intersect_point(start_pos + (movement_dir * intersect_y));
+
+		if (intersect_y > movement_length)
+		{
+			// The collision is beyond our reach... or is it? Let's consider the radius
+			if (DistanceToYAxisAlignedLine2D(desired_pos, y_aligned_line) <= radius)
+			{
+				// That's a hit
+				out_colliding_building = block_building_3D;
+				out_colliding_pos = cVector2(y_aligned_line, desired_pos.y);
+				collision_found = true;
+			}
+		}
+		else
+		{
+			if (IsWithinRange(block_building.mMin.y - radius, intersect_point.y, block_building.mMax.y + radius))
+			{
+				out_colliding_building = block_building_3D;
+				out_colliding_pos = cVector2(intersect_point.x, Clamp(block_building.mMin.y, intersect_point.y, block_building.mMax.y));
+				collision_found = true;
+			}
+		}
+	}
+
+	return collision_found;
 }
