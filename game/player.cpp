@@ -25,23 +25,31 @@ cPlayer::cPlayer()
 }
 
 //----------------------------------------------------------------------------
+void cPlayer::Init()
+{
+	const cWorld* const world = cWorld::GetInstance();
+	CPR_assert(world != nullptr, "World has not been initialized yet!");
+
+	const cAABB& world_boundaries = cWorld::GetInstance()->GetWorldBoundaries();
+	mPos = world_boundaries.GetCentroid();
+	mPos.y = 0.0f;
+}
+
+//----------------------------------------------------------------------------
 void cPlayer::Update(float elapsed)
 {
-	mPos += ComputeLinearVelocity() * elapsed;
+	mPos = cWorld::GetInstance()->StepPlayerCollision(mPos, ComputeLinearVelocity(), PLAYER_RADIUS, elapsed);
 
-	const cVector3 height(0.0f, PLAYER_HEIGHT, 0.0f);
-
-	// Test
-	const cVector3 forward_dir = cVector3::ZAXIS().RotateAroundY(mYaw);
-	// Debug::cRenderer::Get().AddSphere(mPos + height + (forward_dir * 2.0f), PLAYER_RADIUS, TCOLOR_YELLOW);
-
-	// Debug::WriteLine("Player pos: (%f, %f, %f). Forward dir: (%f, %f, %f)", mPos.x, mPos.y, mPos.z, forward_dir.x, forward_dir.y, forward_dir.z);
-
+/*
+	const cVector3 forward_dir = GetForwardDir();
+	
 	const cVector3 collision = cWorld::GetInstance()->StepPlayerCollision(mPos + cVector3(0.0f, PLAYER_HEIGHT, 0.0f), forward_dir * 10000, PLAYER_RADIUS, elapsed);
 	Debug::cRenderer::Get().AddSphere(collision, 1.0f, TCOLOR_RED);
+*/
 
 	mLookAt = ComputeLookAt();
 
+	const cVector3 height(0.0f, PLAYER_HEIGHT, 0.0f);
 	Camera::LookAt(mPos + height, mLookAt);
 }
 
@@ -95,4 +103,10 @@ cVector3 cPlayer::ComputeLookAt()
 	mPitch = Clamp(-MAX_PITCH, mPitch, MAX_PITCH);
 
 	return mPos + cVector3(0.0f, mPos.y + sin(mPitch) + PLAYER_HEIGHT, cos(mPitch)).RotateAroundY(mYaw);
+}
+
+//----------------------------------------------------------------------------
+cVector3 cPlayer::GetForwardDir() const
+{
+	return cVector3::ZAXIS().RotateAroundY(mYaw);
 }

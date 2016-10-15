@@ -47,6 +47,7 @@ cPlayer gPlayer;
 void OnInit()
 {
 	cWorld::InitInstance("resources/city.txt");
+	gPlayer.Init();
 }
 
 //----------------------------------------------------------------------------

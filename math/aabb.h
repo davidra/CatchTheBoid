@@ -24,7 +24,10 @@ public:
 	cAABB(const cVector3& p);
 	cAABB(const cVector3& aabb_min, const cVector3& aabb_max);
 
-	cAABB2D GetXZ() const;
+	cAABB2D		GetXZ() const;
+	cVector3	GetCentroid() const;
+
+	bool IsInside(const cVector3& point) const;
 
 	cVector3 mMin;
 	cVector3 mMax;
@@ -51,6 +54,20 @@ inline cAABB::cAABB(const cVector3& aabb_min, const cVector3& aabb_max)
 inline cAABB2D cAABB::GetXZ() const
 {
 	return cAABB2D(cVector2(mMin.x, mMin.z), cVector2(mMax.x, mMax.z));
+}
+
+//----------------------------------------------------------------------------
+inline cVector3 cAABB::GetCentroid() const
+{
+	return (mMin + mMax) * HALF;
+}
+
+//----------------------------------------------------------------------------
+inline bool cAABB::IsInside(const cVector3& point) const
+{
+	return (point.x >= mMin.x) && (point.x <= mMax.x)
+		&& (point.y >= mMin.y) && (point.y <= mMax.y)
+		&& (point.z >= mMin.z) && (point.z <= mMax.z);
 }
 
 //----------------------------------------------------------------------------

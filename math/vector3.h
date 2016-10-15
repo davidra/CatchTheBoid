@@ -21,6 +21,11 @@ public:
 	cVector3& RotateAroundX(float angle);
 
 	void SetNormalized();
+	bool IsNormalized() const;
+
+
+	float	Length() const;
+	float	LengthSqr() const;
 
 	cVector2 GetXZ() const;
 
@@ -33,6 +38,11 @@ public:
 	static cVector3 ZERO()	{ return cVector3(0.0f, 0.0f, 0.0f); }
 	static cVector3 ONE()	{ return cVector3(1.0f, 1.0f, 1.0f); }
 };
+
+inline cVector3 Normalize(const cVector3& v);
+inline float	Dot(const cVector3& lhs, const cVector3& rhs);
+inline cVector3 Cross(const cVector3& lhs, const cVector3& rhs);
+inline cVector3 ProjectVectorOntoPlane(const cVector3& vector, cVector3& plane_normal);
 
 //----------------------------------------------------------------------------	
 inline bool IsSimilar(const cVector3& lhs, const cVector3& rhs, float epsilon = EPSILON)
@@ -79,6 +89,18 @@ inline void cVector3::SetNormalized()
 }
 
 //----------------------------------------------------------------------------
+inline float cVector3::Length() const
+{
+	return D3DXVec3Length(this);
+}
+
+//----------------------------------------------------------------------------
+inline float cVector3::LengthSqr() const
+{
+	return D3DXVec3LengthSq(this);
+}
+
+//----------------------------------------------------------------------------
 inline cVector2 cVector3::GetXZ() const
 {
 	return cVector2(x, z);
@@ -88,4 +110,39 @@ inline cVector2 cVector3::GetXZ() const
 inline bool cVector3::IsZero() const
 {
 	return !!(*this == cVector3::ZERO());
+}
+
+//----------------------------------------------------------------------------
+inline cVector3 Normalize(const cVector3& v)
+{
+	cVector3 result;
+	return *D3DXVec3Normalize(&result, &v);
+}
+
+//----------------------------------------------------------------------------
+inline bool cVector3::IsNormalized() const
+{
+	return IsSimilar(Length(), 1.0f);
+};
+
+//----------------------------------------------------------------------------
+inline float Dot(const cVector3& lhs, const cVector3& rhs)
+{
+	return D3DXVec3Dot(&lhs, &rhs);
+}
+
+//----------------------------------------------------------------------------
+inline cVector3 Cross(const cVector3& lhs, const cVector3& rhs)
+{
+	cVector3 result;
+	return *D3DXVec3Cross(&result, &lhs, &rhs);
+}
+
+//----------------------------------------------------------------------------
+inline cVector3 ProjectVectorOntoPlane(const cVector3& vector, cVector3& plane_normal)
+{
+	CPR_assert(plane_normal.IsNormalized(), "The plane normal must be normalized!");
+
+	// V||N = N x (V x N)
+	return Cross(plane_normal, Cross(vector, plane_normal));
 }

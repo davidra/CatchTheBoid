@@ -56,6 +56,6 @@ inline bool cVector2::IsZero() const
 inline cVector2 Normalize(const cVector2& v)
 {
 	cVector2 result;
-	return static_cast<cVector2&>(*D3DXVec2Normalize(&result, &v));
+	return *D3DXVec2Normalize(&result, &v);
 }
 
