@@ -52,12 +52,13 @@ private:
 		unsigned mRows;
 	};
 
-	bool	ParseCityMatrix(const char* city_file, tCityMatrix& city_matrix) const;
-	cAABB	ComputeAABBForRowColumn(unsigned row, unsigned column, float height) const;
+	bool			ParseCityMatrix(const char* city_file, tCityMatrix& city_matrix) const;
+	cAABB			ComputeAABBForRowColumn(unsigned row, unsigned column, float height) const;
 
-	bool ComputeBlocksInSegment(float start, float end, float enarge_by, int& start_idx, int& end_idx);
+	bool			ComputeBlocksInSegment(float start, float end, float enarge_by, int& start_idx, int& end_idx);
 
-	bool FindCollidingBuilding2D(const cVector2& start_pos, const cVector2& desired_pos, float radius, cAABB& out_colliding_building, cVector2& colliding_pos) const;
+	bool			FindCollidingBuilding2D(const cVector2& start_pos, const cVector2& desired_pos, float radius, cAABB& out_colliding_building, cVector2& out_colliding_pos) const;
+	const cAABB&	GetBuildingOfBlockAt2DPos(const cVector2& pos) const;
 
 	tStaticGeoContainer mStaticGeo;
 	tCityMatrix			mCityMatrix;

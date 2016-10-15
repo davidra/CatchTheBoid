@@ -305,7 +305,7 @@ bool cWorld::ComputeBlocksInSegment(float start, float end, float enlarge_by, in
 bool cWorld::FindCollidingBuilding2D(const cVector2& start_pos, const cVector2& desired_pos, float radius, cAABB& out_colliding_building, cVector2& out_colliding_pos) const
 {
 	const cVector2 movement = desired_pos - start_pos;
-	float movement_length = movement.Length();
+	const float movement_length = movement.Length();
 	const cVector2 movement_dir(movement / movement_length);
 
 	bool collision_found = false;
@@ -313,10 +313,8 @@ bool cWorld::FindCollidingBuilding2D(const cVector2& start_pos, const cVector2& 
 	while (!collision_found)
 	{
 		// Find the block where the start pos lies
-		int start_row = Clamp<int>(0, start_pos.y / -BLOCK_SIZE, mCityMatrix.mRows - 1);
-		int start_column = Clamp<int>(0, start_pos.x / BLOCK_SIZE, mCityMatrix.mColumns - 1);
-
-		const cAABB& block_building = mCityMatrix.mMatrix[start_row][start_column];
+		const cAABB& block_building_3D = GetBuildingOfBlockAt2DPos(start_pos);
+		const cAABB2D block_building = block_building_3D.GetXZ();
 
 		// Get the axis-aligned lines defined by the building with what we can collide
 		static const float INVALID_LINE = FLT_MAX;
@@ -378,16 +376,23 @@ bool cWorld::FindCollidingBuilding2D(const cVector2& start_pos, const cVector2& 
 					if (DistanceToXAxisAlignedLine2D(desired_pos, x_aligned_line) <= radius)
 					{
 						// That's a hit
-						out_colliding_building = block_building;
+						out_colliding_building = block_building_3D;
 						out_colliding_pos = cVector2(desired_pos.x, x_aligned_line);
 						collision_found = true;
+					}
+					else
+					{
+						// we are done here
+						break;
 					}
 				}
 				else
 				{
 					if (IsWithinRange(block_building.mMin.x - radius, intersect_point.x, block_building.mMax.x + radius))
 					{
-
+						out_colliding_building = block_building_3D;
+						out_colliding_pos = cVector2(Clamp(block_building.mMin.x, intersect_point.x, block_building.mMax.x), intersect_point.y);
+						collision_found = true;
 					}
 					else
 					{
@@ -399,10 +404,55 @@ bool cWorld::FindCollidingBuilding2D(const cVector2& start_pos, const cVector2& 
 			}
 			else if (intersect_y != INVALID_INTERSECT_RESULT)
 			{
+				const cVector2 intersect_point(start_pos + (movement_dir * intersect_y));
+
+				if (intersect_y > movement_length)
+				{
+					// The collision is beyond our reach... or is it? Let's consider the radius
+					if (DistanceToYAxisAlignedLine2D(desired_pos, y_aligned_line) <= radius)
+					{
+						// That's a hit
+						out_colliding_building = block_building_3D;
+						out_colliding_pos = cVector2(y_aligned_line, desired_pos.y);
+						collision_found = true;
+					}
+					else
+					{
+						// we are done here
+						break;
+					}
+				}
+				else
+				{
+					if (IsWithinRange(block_building.mMin.y - radius, intersect_point.y, block_building.mMax.y + radius))
+					{
+						out_colliding_building = block_building_3D;
+						out_colliding_pos = cVector2(intersect_point.x, Clamp(block_building.mMin.y, intersect_point.y, block_building.mMax.y));
+						collision_found = true;
+					}
+					else
+					{
+						// continue from this point
+						movement_length -= intersect_y;
+						start_pos = intersect_point;
+					}
+				}
+			}
+			else
+			{
+				// Could not collide with this block lines, continue from the boundaries of the next block
 
 			}
 		}
 	}
 
 	return collision_found;
+}
+
+//----------------------------------------------------------------------------
+const cAABB& cWorld::GetBuildingOfBlockAt2DPos(const cVector2& pos) const
+{
+	const int start_row = Clamp<int>(0, pos.y / -BLOCK_SIZE, mCityMatrix.mRows - 1);
+	const int start_column = Clamp<int>(0, pos.x / BLOCK_SIZE, mCityMatrix.mColumns - 1);
+	return mCityMatrix.mMatrix[start_row][start_column];
 }

@@ -12,6 +12,8 @@ public:
 	cAABB(const cVector3& p);
 	cAABB(const cVector3& aabb_min, const cVector3& aabb_max);
 
+	cAABB2D GetXZ() const;
+
 	cVector3 mMin;
 	cVector3 mMax;
 };
@@ -30,6 +32,11 @@ inline cAABB::cAABB(const cVector3& aabb_min, const cVector3& aabb_max)
 {
 }
 
+//----------------------------------------------------------------------------
+inline cAABB2D cAABB::GetXZ() const
+{
+	return cAABB2D(cVector2(mMin.x, mMin.z), cVector2(mMax.x, mMax.z));
+}
 
 //----------------------------------------------------------------------------
 class cAABB2D
