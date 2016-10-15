@@ -16,17 +16,31 @@
     <ClInclude Include="CPR_Framework.h" />
     <ClInclude Include="debugutils\assert.h" />
     <ClInclude Include="debugutils\debug.h" />
+    <ClInclude Include="game\modelrepository.h" />
+    <ClInclude Include="game\player.h" />
+    <ClInclude Include="math\aabb.h" />
     <ClInclude Include="math\color.h" />
+    <ClInclude Include="math\mathutils.h" />
+    <ClInclude Include="math\matrix33.h" />
+    <ClInclude Include="math\matrix44.h" />
+    <ClInclude Include="math\quat.h" />
+    <ClInclude Include="math\transform.h" />
+    <ClInclude Include="math\vector2.h" />
     <ClInclude Include="math\vector3.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="game\world.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="game\player.cpp" />
     <ClCompile Include="game\world.cpp" />
-    <ClInclude Include="core\static_stack.h" />
-    <ClCompile Include="CPR_Test.cpp">
+    <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+    </ClCompile>
+    <ClInclude Include="core\static_stack.h" />
+    <ClCompile Include="CPR_Test.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Use</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="debugutils\debug.cpp" />
   </ItemGroup>

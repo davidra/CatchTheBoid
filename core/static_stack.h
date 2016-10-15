@@ -7,6 +7,7 @@
 #include "core/base.h"
 #include "core/utils.h"
 
+//TODO: Why did I even bother adding this class? Remove (probably)
 namespace Core
 {
 	template<class T, size_t Capacity>

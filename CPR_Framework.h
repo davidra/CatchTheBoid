@@ -12,6 +12,21 @@ public:
 	static D3DXVECTOR2 GetPosition();
 	static bool LeftMouseButton();
 	static bool RightMouseButton();
+	// TODO: Delete this if not used
+/*
+	static D3DXVECTOR2 GetMouseDelta()
+	{
+		// If the resolution changes after this is called for the first time, this will no longer be correct, but oh well
+		static const int reset_x = GetSystemMetrics(SM_CXSCREEN) / 2;
+		static const int reset_y = GetSystemMetrics(SM_CYSCREEN) / 2;
+
+		auto mouse_delta = GetPosition() - D3DXVECTOR2(static_cast<float>(reset_x), static_cast<float>(reset_y));
+
+		SetCursorPos(reset_x, reset_y);
+
+		return mouse_delta;
+	}
+*/
 };
 
 //----------------------------------------------------------------------------

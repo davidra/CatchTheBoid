@@ -5,6 +5,7 @@
 
 #include "core/base.h"
 
+// TODO: Rethink this, probably the Core namespace is not needed, so remove it
 namespace Core
 {
 	using std::move;
@@ -22,3 +23,14 @@ namespace Core
 				: value;
 	}
 }
+
+//----------------------------------------------------------------------------
+// Checks if value is inside the range [range_start, range_end), i.e., range_start is included 
+template <class T>
+static bool IsWithinRange(const T& range_start, const T& value, const T& range_end)
+{
+	return (value >= range_start) && (value < range_end);
+}
+
+template <typename T> void ignore_expression(const T&) {}
+#define ignore_expr(expression) ignore_expression((expression))

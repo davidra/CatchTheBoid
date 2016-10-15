@@ -2,9 +2,12 @@
 
 #include "CPR_Framework.h"
 #include "game/world.h"
+#include "game/player.h"
 
-cWorld gWorld;
+// TODO: Delete these, probably
 float	g_angle = 0.0f;
+extern struct IDirect3DDevice9 * g_pDevice;
+
 
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -36,27 +39,33 @@ float	g_angle = 0.0f;
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 
+// TODO: Rethink this
+cWorld gWorld;
+cPlayer gPlayer;
+
 //----------------------------------------------------------------------------
 void OnInit()
 {
+	SetCapture(GetActiveWindow());
+
 	gWorld.Init("resources/city.txt");
 }
 
 //----------------------------------------------------------------------------
 void OnShutdown()
 {
+	ReleaseCapture();
 }
 
 //----------------------------------------------------------------------------
 void OnUpdate( float _deltaTime )
 {
-	// update camera
-	g_angle += _deltaTime;
-	Camera::LookAt( D3DXVECTOR3( cos( g_angle ) * 50.0f, 5.0f, sin( g_angle ) * 50.0f ), D3DXVECTOR3( 0.0f, 0.5f, 0.0f ) );
+	gPlayer.Update(_deltaTime);
 }
 
 //----------------------------------------------------------------------------
 void OnRender()
 {
 	gWorld.Render();
+	gPlayer.Render();
 }

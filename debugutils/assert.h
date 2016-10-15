@@ -5,12 +5,16 @@
 
 #include "debugutils\debug.h"
 
-#define CPR_assert(pp_expr, ...) \
-		do																		\
-		{                                                                       \
-			if (!(pp_expr)) {                                                   \
-				Debug::ErrorMsg(__FILE__, __LINE__, #pp_expr, __VA_ARGS__);		\
-				__debugbreak();                                                 \
-			}                                                                   \
-		}                                                                       \
-		while (false)
+#if defined _DEBUG
+	#define CPR_assert(expr, ...) \
+			do																		\
+			{                                                                       \
+				if (!(expr)) {														\
+					Debug::ErrorMsg(__FILE__, __LINE__, #expr, __VA_ARGS__);		\
+					__debugbreak();                                                 \
+				}                                                                   \
+			}                                                                       \
+			while (false)
+#else
+	#define CPR_assert(expr, ...) ignore_expr(expr)
+#endif
