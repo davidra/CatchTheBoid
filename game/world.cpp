@@ -150,6 +150,7 @@ cVector3 cWorld::StepPlayerCollision(const cVector3& cur_pos, const cVector3& li
 	// intersecting it with the city matrix
 	cVector2 cur_pos_2D(cur_pos.GetXZ());
 	cVector2 desired_pos_2D(desired_pos.GetXZ());
+	cVector2 movement_dir_2D(Normalize(desired_pos_2D - cur_pos_2D));
 
 	// Clamp to boundaries of world
 	const bool start_is_inside = Is2DPointInsideWorld(cur_pos_2D);
@@ -161,8 +162,6 @@ cVector3 cWorld::StepPlayerCollision(const cVector3& cur_pos, const cVector3& li
 	else if (!end_is_inside)
 	{
 		// Find collision with boundaries
-		cVector2 movement_dir_2D(Normalize(desired_pos_2D - cur_pos_2D));
-
 		bool already_in_y_aligned_boundary = false;
 		float y_aligned_boundary = 0.0f;
 		if (movement_dir_2D.x > 0.0f)
@@ -222,13 +221,30 @@ cVector3 cWorld::StepPlayerCollision(const cVector3& cur_pos, const cVector3& li
 		}
 	}
 
-	// TODO: Collide with ground surfaces
 
 	cVector2 colliding_pos;
 	cAABB colliding_building;
-	if (FindCollidingBuilding2D(cur_pos_2D, desired_pos_2D, radius, colliding_building, colliding_pos))
+	while (FindCollidingBuilding2D(cur_pos_2D, desired_pos_2D, radius, colliding_building, colliding_pos))
 	{
-		return cVector3(colliding_pos.x, desired_pos.y, colliding_pos.y);
+		// TODO: Review this clusterfuck, all the efficiency of the 2D check gets lost of we redundantly do a 3D check now...and the retry is shaky...sigh
+
+		// Now refine this with a proper 3D check
+		cVector3 colliding_surface_normal;
+		const cVector3 desired_movement = desired_pos - cur_pos;
+		const float test_distance = IntersectAABBWithSphereCast(colliding_building, cur_pos, desired_movement, radius, colliding_surface_normal);
+		if (test_distance != INVALID_INTERSECT_RESULT)
+		{
+			const cVector3 movement_dir = Normalize(desired_movement);
+			const cVector3 colliding_pos_3D(cur_pos + (movement_dir * test_distance));
+
+			// project the remaining vector into the collision plane
+			return colliding_pos_3D + ProjectVectorOntoPlane(desired_pos - colliding_pos_3D, colliding_surface_normal);
+		}
+		else
+		{
+			// Progress a bit and keep trying 
+			cur_pos_2D += movement_dir_2D * 0.01f;
+		}
 	}
 
 	return desired_pos;
@@ -533,4 +549,271 @@ bool cWorld::TestCollisionWithBlock2D(const cAABB& block_building_3D, const cVec
 	}
 
 	return collision_found;
+}
+
+//----------------------------------------------------------------------------
+void cWorld::GetAllBuildingsIntersecting2DLine(const cVector2& start_pos, const cVector2& end_pos, tBuildingsContainer& out_intersected_buildings) const
+{
+
+}
+
+//----------------------------------------------------------------------------
+bool cWorld::CastSphereAgainstWorld(const cVector3& start_pos, const cVector3& desired_pos, float radius, cVector3& out_colliding_pos, cVector3& out_colliding_normal) const
+{
+	cVector3 end_pos = desired_pos;
+	cVector3 distance = end_pos - start_pos;
+
+	// Determine orientation of displacement and how our search will progress
+	enum eORIENTATION : unsigned
+	{
+		OR_NONE 			= 0x00,
+
+		OR_RIGHT_TO_LEFT	= 0x01,
+		OR_LEFT_TO_RIGHT	= 0x02,
+
+		OR_UP_TO_DOWN		= 0x04,
+		OR_DOWN_TO_UP		= 0x08,
+
+		OR_TOP_TO_BOTTOM	= 0x10,
+		OR_BOTTOM_TO_TOP	= 0x20,
+	};
+
+	unsigned dis_orientation = OR_NONE;
+	int column_grow = 0;
+	float (*yzplane_x) (int) = nullptr;
+	float yz_boundary_x = 0.0f;
+	if (distance.x < 0.0f)
+	{
+		dis_orientation |= OR_RIGHT_TO_LEFT;
+		column_grow = -1;
+
+		yzplane_x = [](int column) { return (column * BLOCK_SIZE) + BUILDING_SIDE_SIZE; };
+		yz_boundary_x = mCityMatrix.mWorldAABB.mMin.x;
+	}
+	else if (distance.x > 0.0f)
+	{
+		dis_orientation |= OR_LEFT_TO_RIGHT;
+		column_grow = 1;
+
+		yzplane_x = [](int column) { return (column + 1) * BLOCK_SIZE; };
+		yz_boundary_x = mCityMatrix.mWorldAABB.mMax.x;
+	}
+
+	if (distance.y < 0.0f)
+	{
+		dis_orientation |= OR_UP_TO_DOWN;
+	}
+	else if (distance.y > 0.0f)
+	{
+		dis_orientation |= OR_DOWN_TO_UP;
+	}
+
+	int row_grow = 0;
+	float (*yxplane_z)(int) = nullptr;
+	float yx_boundary_z = 0.0f;
+	if (distance.z < 0.0f)
+	{
+		dis_orientation |= OR_TOP_TO_BOTTOM;
+		row_grow = 1;
+		yxplane_z = [] (int row) { return -(BLOCK_SIZE * (row + 1)); };
+		yx_boundary_z = mCityMatrix.mWorldAABB.mMin.z;
+	}
+	else if (distance.z > 0.0f)
+	{
+		dis_orientation |= OR_BOTTOM_TO_TOP;
+		row_grow = -1;
+		yxplane_z = [] (int row) { return -((BLOCK_SIZE * row) + BUILDING_SIDE_SIZE); };
+		yx_boundary_z = mCityMatrix.mWorldAABB.mMax.z;
+	}
+
+	if (dis_orientation == OR_NONE)
+	{
+		// no displacement
+		return false;
+	}
+
+	if ((dis_orientation & OR_DOWN_TO_UP) && start_pos.y > (mCityMatrix.mWorldAABB.mMax.y))
+	{
+		// We are higher than our highest building and moving up
+		return false;
+	}
+
+	// Clamp within world boundaries
+	// Clamp ground (there is no ceiling boundary)
+	const float ground_y = mCityMatrix.mWorldAABB.mMin.y + radius;
+	// Clamp with ground if we are going below it
+	if (end_pos.y < ground_y)
+	{
+		// We elevate the ground a bit to account for radius
+		const float dist_to_plane = IntersectRayWithXZPlane(start_pos, distance, ground_y, out_colliding_normal);
+		CPR_assert(dist_to_plane != INVALID_INTERSECT_RESULT, "Collision with ground was expected...why?");
+		end_pos = start_pos + (distance * dist_to_plane);
+		distance = end_pos - start_pos;
+	}
+
+	// Clamp to horizontal boundaries
+	if (!IsWithinRange(mCityMatrix.mWorldAABB.mMin.x, end_pos.x, mCityMatrix.mWorldAABB.mMax.x))
+	{
+		const float dist_to_plane = IntersectRayWithYZPlane(start_pos, distance, yz_boundary_x, out_colliding_normal);
+		CPR_assert(dist_to_plane != INVALID_INTERSECT_RESULT, "Collision with yz boundary was expected...why?");
+		end_pos = start_pos + (distance * dist_to_plane);
+		distance = end_pos - start_pos;
+	}
+
+	// Clamp to vertical boundaries
+	if (!IsWithinRange(mCityMatrix.mWorldAABB.mMin.z, end_pos.z, mCityMatrix.mWorldAABB.mMax.z))
+	{
+		const float dist_to_plane = IntersectRayWithYXPlane(start_pos, distance, yx_boundary_z, out_colliding_normal);
+		CPR_assert(dist_to_plane != INVALID_INTERSECT_RESULT, "Collision with yx boundary was expected...why?");
+		end_pos = start_pos + (distance * dist_to_plane);
+		distance = end_pos - start_pos;
+	}
+
+	// Find starting and end cells
+	int row = Clamp(0, static_cast<int>(start_pos.z / -BLOCK_SIZE), static_cast<int>(mCityMatrix.mRows) - 1);
+	int column = Clamp(0, static_cast<int>(start_pos.x / BLOCK_SIZE), static_cast<int>(mCityMatrix.mColumns) - 1);
+
+	const int end_row = Clamp(0, static_cast<int>(end_pos.z / -BLOCK_SIZE), static_cast<int>(mCityMatrix.mRows) - 1);
+	const int end_column = Clamp(0, static_cast<int>(end_pos.x / BLOCK_SIZE), static_cast<int>(mCityMatrix.mColumns) - 1);
+
+	bool keep_searching = true;
+	while (keep_searching)
+	{
+		// Check distance against closest YX and YZ planes
+		float YZdist = INVALID_INTERSECT_RESULT;
+		cVector3 YZnormal;
+		if (dis_orientation & (OR_LEFT_TO_RIGHT | OR_RIGHT_TO_LEFT))
+		{
+			YZdist = IntersectRayWithYZPlane(start_pos, distance, yzplane_x(column) - (column_grow * radius), YZnormal);
+		}
+
+		float YXdist = INVALID_INTERSECT_RESULT;
+		cVector3 YXnormal;
+		if (dis_orientation & (OR_TOP_TO_BOTTOM | OR_BOTTOM_TO_TOP))
+		{
+			YXdist = IntersectRayWithYXPlane(start_pos, distance, yxplane_z(row) + (row_grow * radius), YXnormal);
+		}
+
+		// Try once per axis
+		for (int axis = 0; axis < 2; ++axis)
+		{
+			if (YZdist < YXdist)
+			{
+				// Closest collision with YZ plane, validate is in z-range of a building
+				const float coll_z = start_pos.z + (distance.z * YZdist);
+				const int coll_row = static_cast<int>(-coll_z / BLOCK_SIZE); // negated since rows grow when z goes down
+				if (!IsWithinRange<int>(0, coll_row, mCityMatrix.mRows - 1))
+				{
+					break;
+				}
+
+				const cAABB& coll_building = mCityMatrix[coll_row][column];
+				if (coll_building.mMax.y == 0.0f)
+				{
+					// Skip 0-height buildings
+					break;
+				}
+
+				const float z_in_block = -coll_z - (coll_row * BLOCK_SIZE); // this will now give us fabsf(coll_z % BLOCKSIZE) 
+				if (z_in_block <= BUILDING_SIDE_SIZE)
+				{
+					cVector3 coll_pos = start_pos + (distance * YZdist);
+
+					bool discard = false;
+					const float coll_y = coll_pos.y;
+					if (coll_y > coll_building.mMax.y)
+					{
+						discard = true;
+
+						// If the collision happens above the building, we can still collide with its "roof"
+
+						float XZdist = INVALID_INTERSECT_RESULT;
+						if (dis_orientation & OR_UP_TO_DOWN)
+						{
+							cVector3 XZnormal;
+							XZdist = IntersectRayWithXZPlane(start_pos, distance, coll_building.mMax.y + radius, XZnormal);
+							if (XZdist != INVALID_INTERSECT_RESULT)
+							{
+								coll_pos = start_pos + (distance * XZdist);
+								discard = false;
+							}
+						}
+					}
+
+					// We now need to do the real check with the full AABB with this candidate collision pos, this will also get us a proper normal
+					if (!discard && IntersectAABBWithSphere(coll_building, coll_pos, radius, coll_pos, out_colliding_normal))
+					{
+						// closest plane collision validated, this is our hit
+						out_colliding_pos = coll_pos;
+						return true;
+					}
+
+					YZdist = INVALID_INTERSECT_RESULT;
+				}
+			}
+			else if (YXdist != INVALID_INTERSECT_RESULT)
+			{
+				// Closest collision with YX plane, validate is in x-range of a building
+				const float coll_x = start_pos.x + distance.x * YXdist;
+				const int coll_column = static_cast<int>(coll_x / BLOCK_SIZE);
+				if (!IsWithinRange<int>(0, coll_column, mCityMatrix.mColumns - 1))
+				{
+					break;
+				}
+
+				const cAABB& coll_building = mCityMatrix[row][coll_column];
+				if (coll_building.mMax.y == 0.0f)
+				{
+					// Skip 0-height buildings
+					break;
+				}
+
+				const float x_in_block = coll_x - (coll_column * BLOCK_SIZE); // this will now give us fabsf(coll_x % BLOCKSIZE) 
+				if (x_in_block <= BUILDING_SIDE_SIZE)
+				{
+					cVector3 coll_pos = start_pos + (distance * YXdist);
+
+					bool discard = false;
+					const float coll_y = coll_pos.y;
+					if (coll_y > coll_building.mMax.y)
+					{
+						discard = true;
+
+						// If the collision happens above the building, we can still collide with its "roof"
+						float XZdist = INVALID_INTERSECT_RESULT;
+						if (dis_orientation & OR_UP_TO_DOWN)
+						{
+							cVector3 XZnormal;
+							XZdist = IntersectRayWithXZPlane(start_pos, distance, coll_building.mMax.y + radius, XZnormal);
+							if (XZdist != INVALID_INTERSECT_RESULT)
+							{
+								coll_pos = start_pos + (distance * XZdist);
+								discard = false;
+							}
+						}
+					}
+
+					// We now need to do the real check with the full AABB with this candidate collision pos, this will also get us a proper normal
+					if (!discard && IntersectAABBWithSphere(coll_building, coll_pos, radius, coll_pos, out_colliding_normal))
+					{
+						// closest plane collision validated, this is our hit
+						out_colliding_pos = coll_pos;
+						return true;
+					}
+
+					YXdist = INVALID_INTERSECT_RESULT;
+				}
+			}
+		}
+
+		// try with next planes if not done
+		keep_searching = (row != end_row) || (column != end_column);
+		if (keep_searching)
+		{
+			row = Clamp<int>(0, row + row_grow, end_row);
+			column = Clamp<int>(0, column + column_grow, end_column);
+		}
+	}
+
+	return false;
 }

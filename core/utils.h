@@ -17,11 +17,11 @@ static T Clamp(const T& low, const T& value, const T& high)
 }
 
 //----------------------------------------------------------------------------
-// Checks if value is inside the range [range_start, range_end), i.e., range_start is included 
+// Checks if value is inside the range [range_start, range_end], i.e., both ends are included 
 template <class T>
 static bool IsWithinRange(const T& range_start, const T& value, const T& range_end)
 {
-	return (value >= range_start) && (value < range_end);
+	return (value >= range_start) && (value <= range_end);
 }
 
 template <typename T> void ignore_expression(const T&) {}

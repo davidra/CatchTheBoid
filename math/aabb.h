@@ -24,6 +24,8 @@ public:
 	cAABB(const cVector3& p);
 	cAABB(const cVector3& aabb_min, const cVector3& aabb_max);
 
+	void		Extend(float amount);
+
 	cAABB2D		GetXZ() const;
 	cVector3	GetCentroid() const;
 
@@ -48,6 +50,14 @@ inline cAABB::cAABB(const cVector3& aabb_min, const cVector3& aabb_max)
 	CPR_assert((mMin.x < mMax.x)
 		&& (mMin.y < mMax.y)
 		&& (mMin.z < mMax.z), "incorrect min/max vectors provided");
+}
+
+//----------------------------------------------------------------------------
+inline void cAABB::Extend(float amount)
+{
+	const cVector3 extension(amount);
+	mMin -= extension;
+	mMax += extension;
 }
 
 //----------------------------------------------------------------------------

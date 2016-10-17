@@ -8,10 +8,10 @@
 // TODO: find a better place for these constants, or some kind of definition scheme
 namespace
 {
-	static /*const*/ float PLAYER_SPEED = 3.0f;
-	static /*const*/ float PLAYER_HEIGHT = 1.8f;
-	static /*const*/ float MOUSE_SENSITIVY = TO_RADIANS(0.2f); // 0.2 degrees per-pixel
 	static /*const*/ float PLAYER_RADIUS = 0.5f;
+	static /*const*/ float PLAYER_SPEED = 3.0f;
+	static /*const*/ float PLAYER_HEIGHT = PLAYER_RADIUS * 2.0f;
+	static /*const*/ float MOUSE_SENSITIVY = TO_RADIANS(0.2f); // 0.2 degrees per-pixel
 }
 
 //----------------------------------------------------------------------------
@@ -33,21 +33,34 @@ void cPlayer::Init()
 	const cAABB& world_boundaries = cWorld::GetInstance()->GetWorldBoundaries();
 	mPos = world_boundaries.GetCentroid();
 	mPos.y = 0.0f;
+
+	// Test: Delete me
+	mPos = cVector3(2.0f, 0.0f, -12.0f);
 }
 
 //----------------------------------------------------------------------------
 void cPlayer::Update(float elapsed)
 {
+	// Debug::WriteLine("Player pos (%f, %f, %f)", mPos.x, mPos.y, mPos.z);
+
 	mPos = cWorld::GetInstance()->StepPlayerCollision(mPos, ComputeLinearVelocity(), PLAYER_RADIUS, elapsed);
 
-/*
+	mLookAt = ComputeLookAt();
+
 	const cVector3 forward_dir = GetForwardDir();
 	
-	const cVector3 collision = cWorld::GetInstance()->StepPlayerCollision(mPos + cVector3(0.0f, PLAYER_HEIGHT, 0.0f), forward_dir * 10000, PLAYER_RADIUS, elapsed);
-	Debug::cRenderer::Get().AddSphere(collision, 1.0f, TCOLOR_RED);
-*/
-
-	mLookAt = ComputeLookAt();
+	if (Keyboard::IsKeyPressed(Keyboard::KEY_UP))
+	{
+		const cVector3 eye_pos = mPos + cVector3(0.0f, PLAYER_HEIGHT, 0.0f);
+		const cVector3 aim_dir = Normalize(mLookAt - eye_pos);
+		cVector3 coll_pos;
+		cVector3 coll_normal;
+		if (cWorld::GetInstance()->CastSphereAgainstWorld(eye_pos, eye_pos + (aim_dir * 10000), PLAYER_RADIUS, coll_pos, coll_normal))
+		{
+			Debug::cRenderer::Get().AddSphere(coll_pos, 1.0f, TCOLOR_RED);
+			Debug::WriteLine("Collision: (%f, %f, %f). Normal: (%f, %f, %f)", coll_pos.x, coll_pos.y, coll_pos.z, coll_normal.x, coll_normal.y, coll_normal.z);
+		}
+	}
 
 	const cVector3 height(0.0f, PLAYER_HEIGHT, 0.0f);
 	Camera::LookAt(mPos + height, mLookAt);
@@ -102,7 +115,10 @@ cVector3 cPlayer::ComputeLookAt()
 	static const float MAX_PITCH = TO_RADIANS(85.0f);
 	mPitch = Clamp(-MAX_PITCH, mPitch, MAX_PITCH);
 
-	return mPos + cVector3(0.0f, mPos.y + sin(mPitch) + PLAYER_HEIGHT, cos(mPitch)).RotateAroundY(mYaw);
+	const float lookat_y = sin(mPitch) * PLAYER_RADIUS * 0.9f;
+	const float lookat_z = cos(mPitch) * PLAYER_RADIUS * 0.9f;
+
+	return mPos + cVector3(0.0f, mPos.y + PLAYER_HEIGHT + lookat_y, lookat_z).RotateAroundY(mYaw);
 }
 
 //----------------------------------------------------------------------------
