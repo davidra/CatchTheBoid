@@ -9,9 +9,14 @@
 namespace
 {
 	static /*const*/ float PLAYER_RADIUS = 0.5f;
-	static /*const*/ float PLAYER_SPEED = 3.0f;
+	static /*const*/ float PLAYER_SPEED = 5.0f;
 	static /*const*/ float PLAYER_HEIGHT = PLAYER_RADIUS * 2.0f;
 	static /*const*/ float MOUSE_SENSITIVY = TO_RADIANS(0.2f); // 0.2 degrees per-pixel
+
+	static bool sTestCollisionsOnLookAt = false;
+	static bool sMoveUpAndDown = false;
+	static bool sOverrideSpawnPos = true;
+	static cVector3 sOverridenSpawnPos(2.0f, PLAYER_RADIUS, -12.0f);
 }
 
 //----------------------------------------------------------------------------
@@ -32,10 +37,12 @@ void cPlayer::Init()
 
 	const cAABB& world_boundaries = cWorld::GetInstance()->GetWorldBoundaries();
 	mPos = world_boundaries.GetCentroid();
-	mPos.y = 0.0f;
+	mPos.y = PLAYER_RADIUS;
 
-	// Test: Delete me
-	mPos = cVector3(2.0f, 0.0f, -12.0f);
+	if (sOverrideSpawnPos)
+	{
+		mPos = sOverridenSpawnPos;
+	}
 }
 
 //----------------------------------------------------------------------------
@@ -43,15 +50,13 @@ void cPlayer::Update(float elapsed)
 {
 	// Debug::WriteLine("Player pos (%f, %f, %f)", mPos.x, mPos.y, mPos.z);
 
-	// mPos = cWorld::GetInstance()->StepPlayerCollision(mPos, ComputeLinearVelocity(), PLAYER_RADIUS, elapsed);
-
-	mPos += ComputeLinearVelocity() * elapsed;
+	mPos = cWorld::GetInstance()->StepPlayerCollision(mPos, ComputeLinearVelocity(), PLAYER_RADIUS, elapsed);
 
 	mLookAt = ComputeLookAt();
 
 	const cVector3 forward_dir = GetForwardDir();
 	
-	if (Keyboard::IsKeyPressed(Keyboard::KEY_UP))
+	if (sTestCollisionsOnLookAt && Keyboard::IsKeyPressed(Keyboard::KEY_UP))
 	{
 		const cVector3 eye_pos = mPos + cVector3(0.0f, PLAYER_HEIGHT, 0.0f);
 		const cVector3 aim_dir = Normalize(mLookAt - eye_pos);
@@ -99,14 +104,17 @@ cVector3 cPlayer::ComputeLinearVelocity() const
 		player_speed.x += 1.0f;
 	}
 
-	// TODO: test - remove
-	if (Keyboard::IsKeyPressed(Keyboard::KEY_SPACE))
+	if (sMoveUpAndDown)
 	{
-		player_speed.y += 1.0f;
-	}
-	if (Keyboard::IsKeyPressed(Keyboard::KEY_DOWN))
-	{
-		player_speed.y -= 1.0f;
+		// For debugging purposes mainly
+		if (Keyboard::IsKeyPressed(Keyboard::KEY_SPACE))
+		{
+			player_speed.y += 1.0f;
+		}
+		if (Keyboard::IsKeyPressed(Keyboard::KEY_DOWN))
+		{
+			player_speed.y -= 1.0f;
+		}
 	}
 
 	player_speed.SetNormalized();
