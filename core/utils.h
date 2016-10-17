@@ -17,6 +17,18 @@ static T Clamp(const T& low, const T& value, const T& high)
 }
 
 //----------------------------------------------------------------------------
+// Similar to Clamp but does not care about min/max and is really intended only for numerical values (or the swap could hurt)
+template <class T>
+static T Limit(T a, T value, T b)
+{
+	if (a > b)
+		std::swap(a, b);
+
+	return Clamp(a, value, b);
+}
+
+
+//----------------------------------------------------------------------------
 // Checks if value is inside the range [range_start, range_end], i.e., both ends are included 
 template <class T>
 static bool IsWithinRange(const T& range_start, const T& value, const T& range_end)

@@ -69,6 +69,8 @@ private:
 	bool			FindCollidingBuilding2D(const cVector2& start_pos, const cVector2& desired_pos, float radius, cAABB& out_colliding_building, cVector2& out_colliding_pos) const;
 	bool			TestCollisionWithBlock2D(const cAABB& block_building_3D, const cVector2& start_pos, const cVector2& desired_pos, const cVector2& movement_dir, float movement_length, float radius, cAABB& out_colliding_building, cVector2& out_colliding_pos) const;
 
+	bool			FindBuildingOverlappingCircle(const cVector3& pos, float radius, cAABB& out_building) const;
+
 	typedef std::vector<cAABB> tBuildingsContainer;
 	void			GetAllBuildingsIntersecting2DLine(const cVector2& start_pos, const cVector2& end_pos, tBuildingsContainer& out_intersected_buildings) const;
 

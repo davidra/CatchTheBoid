@@ -43,7 +43,9 @@ void cPlayer::Update(float elapsed)
 {
 	// Debug::WriteLine("Player pos (%f, %f, %f)", mPos.x, mPos.y, mPos.z);
 
-	mPos = cWorld::GetInstance()->StepPlayerCollision(mPos, ComputeLinearVelocity(), PLAYER_RADIUS, elapsed);
+	// mPos = cWorld::GetInstance()->StepPlayerCollision(mPos, ComputeLinearVelocity(), PLAYER_RADIUS, elapsed);
+
+	mPos += ComputeLinearVelocity() * elapsed;
 
 	mLookAt = ComputeLookAt();
 
@@ -57,7 +59,7 @@ void cPlayer::Update(float elapsed)
 		cVector3 coll_normal;
 		if (cWorld::GetInstance()->CastSphereAgainstWorld(eye_pos, eye_pos + (aim_dir * 10000), PLAYER_RADIUS, coll_pos, coll_normal))
 		{
-			Debug::cRenderer::Get().AddSphere(coll_pos, 1.0f, TCOLOR_RED);
+			Debug::cRenderer::Get().AddSphere(coll_pos + (coll_normal * PLAYER_RADIUS), PLAYER_RADIUS, TCOLOR_RED);
 			Debug::WriteLine("Collision: (%f, %f, %f). Normal: (%f, %f, %f)", coll_pos.x, coll_pos.y, coll_pos.z, coll_normal.x, coll_normal.y, coll_normal.z);
 		}
 	}
@@ -74,6 +76,8 @@ void cPlayer::Render()
 //----------------------------------------------------------------------------
 cVector3 cPlayer::ComputeLinearVelocity() const
 {
+	// For now, let's have infinite acceleration to max speed, and infinite friction
+
 	cVector3 player_speed(cVector3::ZERO());
 	if (Keyboard::IsKeyPressed(Keyboard::KEY_A))
 	{
@@ -93,6 +97,16 @@ cVector3 cPlayer::ComputeLinearVelocity() const
 	if (Keyboard::IsKeyPressed(Keyboard::KEY_D))
 	{
 		player_speed.x += 1.0f;
+	}
+
+	// TODO: test - remove
+	if (Keyboard::IsKeyPressed(Keyboard::KEY_SPACE))
+	{
+		player_speed.y += 1.0f;
+	}
+	if (Keyboard::IsKeyPressed(Keyboard::KEY_DOWN))
+	{
+		player_speed.y -= 1.0f;
 	}
 
 	player_speed.SetNormalized();
@@ -118,7 +132,7 @@ cVector3 cPlayer::ComputeLookAt()
 	const float lookat_y = sin(mPitch) * PLAYER_RADIUS * 0.9f;
 	const float lookat_z = cos(mPitch) * PLAYER_RADIUS * 0.9f;
 
-	return mPos + cVector3(0.0f, mPos.y + PLAYER_HEIGHT + lookat_y, lookat_z).RotateAroundY(mYaw);
+	return mPos + cVector3(0.0f, PLAYER_HEIGHT + lookat_y, lookat_z).RotateAroundY(mYaw);
 }
 
 //----------------------------------------------------------------------------
