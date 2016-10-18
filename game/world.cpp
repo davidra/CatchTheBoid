@@ -308,6 +308,10 @@ bool cWorld::FindBuildingOverlappingCircle(const cVector3& pos, float radius, cA
 		if (pos.z <= (building_square_base - SPACE_BETWEEN_BUILDINGS + radius))
 		{
 			++row;
+			if (row >= static_cast<int>(mCityMatrix.mRows))
+			{
+				return false;
+			}
 		}
 		else
 		{
@@ -322,6 +326,10 @@ bool cWorld::FindBuildingOverlappingCircle(const cVector3& pos, float radius, cA
 		if (pos.x >= (building_right_side + SPACE_BETWEEN_BUILDINGS - radius))
 		{
 			++column;
+			if (column >= static_cast<int>(mCityMatrix.mColumns))
+			{
+				return false;
+			}
 		}
 		else
 		{
