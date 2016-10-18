@@ -242,6 +242,7 @@ inline bool IntersectAABBWithSphere(const cAABB& aabb, const cVector3& sphere_ce
 	cVector3 closest_point;
 	cVector3 normal(cVector3::ZERO());
 
+	unsigned num_faces_inside = 3;
 	if (sphere_center.x < aabb.mMin.x)
 	{
 		closest_point.x = aabb.mMin.x;
@@ -255,6 +256,7 @@ inline bool IntersectAABBWithSphere(const cAABB& aabb, const cVector3& sphere_ce
 	else
 	{
 		closest_point.x = sphere_center.x;
+		--num_faces_inside;
 	}
 
 	if (sphere_center.y < aabb.mMin.y)
@@ -270,6 +272,7 @@ inline bool IntersectAABBWithSphere(const cAABB& aabb, const cVector3& sphere_ce
 	else
 	{
 		closest_point.y = sphere_center.y;
+		--num_faces_inside;
 	}
 
 	if (sphere_center.z < aabb.mMin.z)
@@ -285,16 +288,25 @@ inline bool IntersectAABBWithSphere(const cAABB& aabb, const cVector3& sphere_ce
 	else
 	{
 		closest_point.z = sphere_center.z;
+		--num_faces_inside;
 	}
 
 	// If the point is completely inside the AABB
-	if (!normal.IsZero())
+	if (num_faces_inside > 0)
 	{
 		if (cVector3(sphere_center - closest_point).LengthSqr() <= (sphere_radius * sphere_radius))
 		{
 			// There is a collision
 			out_coll_pos = closest_point;
-			out_normal = Normalize(normal);
+
+			if (num_faces_inside > 1)
+			{
+				out_normal = Normalize(Multiply(closest_point - sphere_center, normal));
+			}
+			else
+			{
+				out_normal = normal;
+			}
 
 			return true;
 		}

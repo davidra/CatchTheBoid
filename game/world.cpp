@@ -149,7 +149,7 @@ cVector3 cWorld::StepPlayerCollision(const cVector3& cur_pos, const cVector3& li
 
 	cVector3 coll_pos;
 	cVector3 coll_normal;
-	if (CastSphereAgainstWorld(cur_pos, desired_pos, radius, coll_pos, coll_normal))
+	if (CastSphereAgainstWorld(cur_pos, desired_pos, radius, false, coll_pos, coll_normal))
 	{
 		coll_pos += coll_normal * (radius + 0.01f);
 
@@ -290,186 +290,15 @@ cAABB cWorld::ComputeAABBForRowColumn(unsigned row, unsigned column, float heigh
 }
 
 //----------------------------------------------------------------------------
-bool cWorld::Is2DPointInsideWorld(const cVector2& pos) const
-{
-	return mCityMatrix.mWorldAABB.IsInside(cVector3(pos.x, 0.1f, pos.y));
-}
-
-//----------------------------------------------------------------------------
-bool cWorld::FindCollidingBuilding2D(const cVector2& start_pos, const cVector2& desired_pos, float radius, cAABB& out_colliding_building, cVector2& out_colliding_pos) const
-{
-	bool collision_found = false;
-
-	const cVector2 movement = desired_pos - start_pos;
-	const float movement_length = movement.Length();
-	const cVector2 movement_dir(movement / movement_length);
-
-	// Find the starting and ending blocks 
-	const int start_row = Clamp(0, static_cast<int>(start_pos.y / -BLOCK_SIZE), static_cast<int>(mCityMatrix.mRows) - 1);
-	const int start_column = Clamp(0, static_cast<int>(start_pos.x / BLOCK_SIZE), static_cast<int>(mCityMatrix.mColumns) - 1);
-
-	const int end_row = Clamp(0, static_cast<int>(desired_pos.y / -BLOCK_SIZE), static_cast<int>(mCityMatrix.mRows) - 1);
-	const int end_column = Clamp(0, static_cast<int>(desired_pos.x / BLOCK_SIZE), static_cast<int>(mCityMatrix.mColumns) - 1);
-
-	// Traverse the blocks based on grid distance to the initial block
-	const int row_delta = end_row - start_row;
-	const int column_delta = end_column - start_column;
-	const int inc_row = (row_delta >= 0) ? 1 : -1;
-	const int inc_column = (column_delta >= 0) ? 1 : -1;
-	const int max_blocks_considered = abs((row_delta + inc_row) * (column_delta + inc_column));
-	for (int current_block_distance = 0, blocks_considered = 0; blocks_considered < max_blocks_considered; ++current_block_distance)
-	{
-		for (int i = current_block_distance; i >= 0; --i)
-		{
-			const int row = start_row + (inc_row * i);
-			const int column = start_column + (inc_column * (current_block_distance - i));
-
-			const bool row_in_range = ((row - start_row) * inc_row) <= (row_delta * inc_row);
-			const bool column_in_range = ((column - start_column) * inc_column) <= (column_delta * inc_column);
-			if (row_in_range && column_in_range)
-			{
-				const cAABB& building_block = mCityMatrix[row][column];
-				collision_found = TestCollisionWithBlock2D(building_block, start_pos, desired_pos, movement_dir, movement_length, radius, out_colliding_building, out_colliding_pos);
-
-				// TODO: We may want not to early out as soon as we find a 2D collision for when we want all the candidates for a refining 3D test. For now, start earlying out on first collision
-				if (collision_found)
-				{
-					Debug::WriteLine("collision: (%f, %f, %f) [%d][%d]", out_colliding_pos.x, out_colliding_pos.y, out_colliding_pos.y, row, column);
-
-					return true;
-				}
-
-				++blocks_considered;
-			}
-		}
-	}
-
-	return collision_found;
-}
-
-//----------------------------------------------------------------------------
-bool cWorld::TestCollisionWithBlock2D(const cAABB& block_building_3D, const cVector2& start_pos, const cVector2& desired_pos, const cVector2& movement_dir, float movement_length, float radius, cAABB& out_colliding_building, cVector2& out_colliding_pos) const
-{
-	const cAABB2D block_building = block_building_3D.GetXZ();
-
-	// early out for buildings with height 0 or when the movement_dir is zero
-	if (IsSimilar(block_building_3D.mMax.y, 0.0f) || movement_dir.IsZero())
-	{
-		return false;
-	}
-
-	bool collision_found = false;
-
-	// Get the axis-aligned lines we can collide with from the AABB of the building based on the direction of the test
-	static const float INVALID_LINE = FLT_MAX;
-	float y_aligned_line = INVALID_LINE;
-	if (movement_dir.x > 0.0f)
-	{
-		// left to right
-		y_aligned_line = block_building.mMin.x;
-	}
-	else if (movement_dir.x < 0.0f)
-	{
-		// right to left
-		y_aligned_line = block_building.mMax.x;
-	}
-
-	float x_aligned_line = INVALID_LINE;
-	if (movement_dir.y > 0.0f)
-	{
-		// down to up
-		x_aligned_line = block_building.mMin.y;
-	}
-	else if (movement_dir.y < 0.0f)
-	{
-		// up to down
-		x_aligned_line = block_building.mMax.y;
-	}
-
-	CPR_assert((x_aligned_line != INVALID_LINE) || (y_aligned_line != INVALID_LINE), "Could not select any axis!");
-
-	float intersect_x = INVALID_INTERSECT_RESULT;
-	if (x_aligned_line != INVALID_LINE)
-	{
-		intersect_x = IntersectRayWithXAxisAlignedLine2D(start_pos, movement_dir, x_aligned_line);
-	}
-
-	float intersect_y = INVALID_INTERSECT_RESULT;
-	if (y_aligned_line != INVALID_LINE)
-	{
-		intersect_y = IntersectRayWithYAxisAlignedLine2D(start_pos, movement_dir, y_aligned_line);
-	}
-
-	for (int axis = 0; (axis < 2) && !collision_found; ++axis)
-	{
-		if (intersect_x < intersect_y)
-		{
-			const cVector2 intersect_point(start_pos + (movement_dir * intersect_x));
-
-			if (IsWithinRange(block_building.mMin.x - radius, intersect_point.x, block_building.mMax.x + radius))
-			{
-				if (intersect_x > movement_length)
-				{
-					// The collision is beyond our reach... or is it? Let's consider the radius
-					if (DistanceToXAxisAlignedLine2D(desired_pos, x_aligned_line) <= radius)
-					{
-						// That's a hit
-						out_colliding_building = block_building_3D;
-						out_colliding_pos = cVector2(desired_pos.x, x_aligned_line);
-						collision_found = true;
-					}
-				}
-				else
-				{
-					out_colliding_building = block_building_3D;
-					out_colliding_pos = cVector2(Clamp(block_building.mMin.x, intersect_point.x, block_building.mMax.x), intersect_point.y);
-					collision_found = true;
-				}
-			}
-
-			// Invalidate this axis for the next loop
-			intersect_x = INVALID_INTERSECT_RESULT;
-		}
-		// Try with the other intersection then
-		else if (intersect_y != INVALID_INTERSECT_RESULT)
-		{
-			const cVector2 intersect_point(start_pos + (movement_dir * intersect_y));
-
-			if (IsWithinRange(block_building.mMin.y - radius, intersect_point.y, block_building.mMax.y + radius))
-			{
-				if (intersect_y > movement_length)
-				{
-					// The collision is beyond our reach... or is it? Let's consider the radius
-					if (DistanceToYAxisAlignedLine2D(desired_pos, y_aligned_line) <= radius)
-					{
-						// That's a hit
-						out_colliding_building = block_building_3D;
-						out_colliding_pos = cVector2(y_aligned_line, desired_pos.y);
-						collision_found = true;
-					}
-				}
-				else
-				{
-					out_colliding_building = block_building_3D;
-					out_colliding_pos = cVector2(intersect_point.x, Clamp(block_building.mMin.y, intersect_point.y, block_building.mMax.y));
-					collision_found = true;
-				}
-			}
-
-			intersect_y = INVALID_INTERSECT_RESULT;
-		}
-	}
-
-	return collision_found;
-}
-
-//----------------------------------------------------------------------------
 bool cWorld::FindBuildingOverlappingCircle(const cVector3& pos, float radius, cAABB& out_building) const
 {
 	CPR_assert((radius * 2.0f) < SPACE_BETWEEN_BUILDINGS, "A radius this big could overlap several buildings, but this function only handles one");
 
 	int row = static_cast<int>(-(pos.z / BLOCK_SIZE));
 	int column = static_cast<int>(pos.x / BLOCK_SIZE);
+
+	if (!IsWithinRange<int>(0, row, mCityMatrix.mRows - 1) || !IsWithinRange<int>(0, column, mCityMatrix.mColumns - 1))
+		return false;
 
 	// Let's abuse the notion that buildings are always on the top-left corner of each grid
 	const float building_square_base = -((row * BLOCK_SIZE) + BUILDING_SIDE_SIZE);
@@ -514,18 +343,9 @@ bool cWorld::FindBuildingOverlappingCircle(const cVector3& pos, float radius, cA
 }
 
 //----------------------------------------------------------------------------
-void cWorld::GetAllBuildingsIntersecting2DLine(const cVector2& start_pos, const cVector2& end_pos, tBuildingsContainer& out_intersected_buildings) const
+bool cWorld::CastSphereAgainstWorld(const cVector3& org_pos, const cVector3& desired_pos, float radius, bool ignore_non_ground_boundaries, cVector3& out_colliding_pos, cVector3& out_colliding_normal) const
 {
-
-}
-
-//----------------------------------------------------------------------------
-// TODO: THere is still a problem here with corners and edges. Due to how I am expanding the AABBs, sometimes we get "collision" on points that are as far as sqrt(2*radius*radius) from the
-// actual AABB. THis seems to be pretty edge case, and I am short on time, so I am making a note here about a possible way to address it in case I have time:
-// Since we know the bounding box of the supposedly collided building, we can know if our collision point is going beyond its actual, not expanded, boundary. In that case we can 
-// just get the point closest to the reported collision (P), calculate distance towards the distance line (P - (P·normalized(distance))*normalized(distance)).LengthSqr() < radius
-bool cWorld::CastSphereAgainstWorld(const cVector3& start_pos, const cVector3& desired_pos, float radius, cVector3& out_colliding_pos, cVector3& out_colliding_normal) const
-{
+	cVector3 start_pos = org_pos;
 	cVector3 end_pos = desired_pos;
 	cVector3 distance = end_pos - start_pos;
 
@@ -605,6 +425,56 @@ bool cWorld::CastSphereAgainstWorld(const cVector3& start_pos, const cVector3& d
 	}
 
 	cVector3 coll_normal(cVector3::YAXIS());
+
+	// First, some special cases...*sigh*
+	// Find if the start pos is on top of a building and we are aiming down. We need to do this since otherwise the algorithm would not consider it 
+	cAABB start_building;
+	if (FindBuildingOverlappingCircle(start_pos, radius, start_building))
+	{
+		if ((start_pos.y > start_building.mMax.y) && (dis_orientation & OR_UP_TO_DOWN))
+		{
+			cVector3 XZnormal;
+			const float XZdist = IntersectRayWithXZPlane(start_pos, distance, start_building.mMax.y + radius, XZnormal);
+			if (XZdist != INVALID_INTERSECT_RESULT)
+			{
+				cVector3 coll_pos = start_pos + (distance * XZdist);
+				// Ok, this is a "bit" of a hack, but let's move the coll_pos towards the distance a bit to handle corners (where the distance to the corner
+				// will be sqrt(2*radius*radius) due to how we extend the planes). Half a radius should be enough...Sorry
+				coll_pos += Normalize(distance) * radius * HALF;
+				if (IntersectAABBWithSphere(start_building, coll_pos, radius, coll_pos, coll_normal))
+				{
+					// We are a aiming down from the top of a building and this is our collision
+					out_colliding_pos = coll_pos;
+					out_colliding_normal = coll_normal;
+					return true;
+				}
+			}
+		}
+		else
+		{
+			// The algorithm ignores the block we are already inside of, where inside of means the point is inside a square extended by the radius
+			// Problem is, in the corners we can actually be closer, so try to find if we are in a corner and move the start_pos back in a way that it is outside that square
+			cVector3 corner(
+				Clamp(start_building.mMin.x, start_pos.x, start_building.mMax.x)
+				, Clamp(start_building.mMin.y, start_pos.y, start_building.mMax.y)
+				, Clamp(start_building.mMin.z, start_pos.z, start_building.mMax.z));
+
+			const bool in_corner = !!(corner != start_pos);
+			if (in_corner)
+			{
+				const cVector3 corner_to_start(start_pos - corner);
+				const float dist_to_corner = corner_to_start.Length();
+				if (dist_to_corner > radius)
+				{
+					const cVector3 corner_to_start_dir = corner_to_start / dist_to_corner;
+					const cVector3 start_pos_delta = corner_to_start_dir * sqrt(2 * (radius*radius));
+					start_pos += start_pos_delta;
+					distance -= start_pos_delta;
+				}
+			}
+		}
+	}
+
 	bool collided_with_boundaries = false;
 
 	// Clamp within world boundaries
@@ -615,54 +485,47 @@ bool cWorld::CastSphereAgainstWorld(const cVector3& start_pos, const cVector3& d
 	{
 		// We elevate the ground a bit to account for radius
 		const float dist_to_plane = IntersectRayWithXZPlane(start_pos, distance, ground_y, coll_normal);
-		CPR_assert(dist_to_plane != INVALID_INTERSECT_RESULT, "Collision with ground was expected...why?");
-		end_pos = start_pos + (distance * dist_to_plane);
-		distance = end_pos - start_pos;
-		collided_with_boundaries = true;
+		if (dist_to_plane != INVALID_INTERSECT_RESULT)
+		{
+			end_pos = start_pos + (distance * dist_to_plane);
+			distance = end_pos - start_pos;
+			collided_with_boundaries = true;
+		}
+		else
+		{
+			Debug::WriteLine("Collision with ground was expected...why?");
+		}
 	}
 
 	// Clamp to horizontal boundaries
-	if (!IsWithinRange(mCityMatrix.mWorldAABB.mMin.x + radius, end_pos.x, mCityMatrix.mWorldAABB.mMax.x - radius))
+	if (!ignore_non_ground_boundaries && !IsWithinRange(mCityMatrix.mWorldAABB.mMin.x + radius, end_pos.x, mCityMatrix.mWorldAABB.mMax.x - radius))
 	{
 		const float dist_to_plane = IntersectRayWithYZPlane(start_pos, distance, yz_boundary_x, coll_normal);
-		CPR_assert(dist_to_plane != INVALID_INTERSECT_RESULT, "Collision with yz boundary was expected...why?");
-		end_pos = start_pos + (distance * dist_to_plane);
-		distance = end_pos - start_pos;
-		collided_with_boundaries = true;
+		if (dist_to_plane != INVALID_INTERSECT_RESULT)
+		{
+			end_pos = start_pos + (distance * dist_to_plane);
+			distance = end_pos - start_pos;
+			collided_with_boundaries = true;
+		}
+		else
+		{
+			Debug::WriteLine("Collision with yz boundary was expected...why?");
+		}
 	}
 
 	// Clamp to vertical boundaries
-	if (!IsWithinRange(mCityMatrix.mWorldAABB.mMin.z + radius, end_pos.z, mCityMatrix.mWorldAABB.mMax.z - radius))
+	if (!ignore_non_ground_boundaries && !IsWithinRange(mCityMatrix.mWorldAABB.mMin.z + radius, end_pos.z, mCityMatrix.mWorldAABB.mMax.z - radius))
 	{
 		const float dist_to_plane = IntersectRayWithYXPlane(start_pos, distance, yx_boundary_z, coll_normal);
-		CPR_assert(dist_to_plane != INVALID_INTERSECT_RESULT, "Collision with yx boundary was expected...why?");
-		end_pos = start_pos + (distance * dist_to_plane);
-		distance = end_pos - start_pos;
-		collided_with_boundaries = true;
-	}
-
-	// Find if the start pos is on top of a building and we are aiming down. We need to do this since otherwise the algorithm would not consider it 
-	if (dis_orientation & OR_UP_TO_DOWN)
-	{
-		cAABB coll_building;
-		if (FindBuildingOverlappingCircle(start_pos, radius, coll_building) && (start_pos.y > coll_building.mMax.y))
+		if (dist_to_plane != INVALID_INTERSECT_RESULT)
 		{
-			cVector3 XZnormal;
-			const float XZdist = IntersectRayWithXZPlane(start_pos, distance, coll_building.mMax.y + radius, XZnormal);
-			if (XZdist != INVALID_INTERSECT_RESULT)
-			{
-				cVector3 coll_pos = start_pos + (distance * XZdist);
-				// Ok, this is a "bit" of a hack, but let's move the coll_pos towards the distance a bit to handle corners (where the distance to the corner
-				// will be sqrt(2*radius*radius) due to how we extend the planes). Half a radius should be enough...Sorry
-				coll_pos += Normalize(distance) * radius * HALF;
-				if (IntersectAABBWithSphere(coll_building, coll_pos, radius, coll_pos, coll_normal))
-				{
-					// We are a aiming down from the top of a building and this is our collision
-					out_colliding_pos = coll_pos;
-					out_colliding_normal = coll_normal;
-					return true;
-				}
-			}
+			end_pos = start_pos + (distance * dist_to_plane);
+			distance = end_pos - start_pos;
+			collided_with_boundaries = true;
+		}
+		else
+		{
+			Debug::WriteLine("Collision with yx boundary was expected...why?");
 		}
 	}
 
@@ -694,6 +557,7 @@ bool cWorld::CastSphereAgainstWorld(const cVector3& start_pos, const cVector3& d
 		// Try once per axis
 		for (int axis = 0; axis < 2; ++axis)
 		{
+			// Vertical plane
 			if (YZdist < YXdist)
 			{
 				cVector3 coll_pos = start_pos + (distance * YZdist);
@@ -726,21 +590,59 @@ bool cWorld::CastSphereAgainstWorld(const cVector3& start_pos, const cVector3& d
 					}
 				}
 
-				// We now need to do the real check with the full AABB with this candidate collision pos, this will also get us a proper normal, this will also eliminate the false positives
-				// coming from the extension of the radius
-				// Ok, this is a "bit" of a hack, but let's move the coll_pos towards the distance a bit to handle corners (where the distance to the corner
-				// will be sqrt(2*radius*radius) due to how we extend the planes). Half a radius should be enough...Sorry
-				coll_pos += Normalize(distance) * radius * HALF;
-				if (!discard && IntersectAABBWithSphere(coll_building, coll_pos, radius, coll_pos, coll_normal))
+				if (!discard)
 				{
-					// closest plane collision validated, this is our hit
-					out_colliding_pos = coll_pos;
-					out_colliding_normal = coll_normal;
-					return true;
+					// Now let's handle the tricky case of corners
+					cVector3 corner;
+					bool handle_corner = false;
+					if (coll_pos.z > coll_building.mMax.z)
+					{
+						corner.z = coll_building.mMax.z;
+						handle_corner = true;
+					}
+					else if (coll_pos.z < coll_building.mMin.z)
+					{
+						corner.z = coll_building.mMin.z;
+						handle_corner = true;
+					}
+
+					if (handle_corner)
+					{
+						if (dis_orientation & OR_LEFT_TO_RIGHT)
+						{
+							corner.x = coll_building.mMin.x;
+						}
+						else
+						{
+							CPR_assert(dis_orientation & OR_RIGHT_TO_LEFT, "Huh?");
+							corner.x = coll_building.mMax.x;
+						}
+
+						corner.y = Clamp(coll_building.mMin.y, coll_pos.y, coll_building.mMax.y);
+
+						const cVector3 coll_to_corner = corner - coll_pos;
+						const bool valid_coll = Dot(distance, coll_to_corner) >= 0.0f;
+						if (valid_coll)
+						{
+							out_colliding_normal = Normalize(-coll_to_corner);
+							out_colliding_pos = corner;
+
+							return true;
+						}
+					}
+					else
+					{
+						// Simple collision with a face
+						out_colliding_normal = (dis_orientation & OR_LEFT_TO_RIGHT) ? -cVector3::XAXIS() : cVector3::XAXIS();
+						out_colliding_pos = coll_pos - (out_colliding_normal * radius);
+
+						return true;
+					}
 				}
 
 				YZdist = INVALID_INTERSECT_RESULT;
 			}
+			// Horizontal plane
 			else if (YXdist != INVALID_INTERSECT_RESULT)
 			{
 				cVector3 coll_pos = start_pos + (distance * YXdist);
@@ -770,6 +672,56 @@ bool cWorld::CastSphereAgainstWorld(const cVector3& start_pos, const cVector3& d
 							coll_pos = start_pos + (distance * XZdist);
 							discard = false;
 						}
+					}
+				}
+
+				if (!discard)
+				{
+					// Now let's handle the tricky case of corners
+					cVector3 corner;
+					bool handle_corner = false;
+					if (coll_pos.x > coll_building.mMax.x)
+					{
+						corner.x = coll_building.mMax.x;
+						handle_corner = true;
+					}
+					else if (coll_pos.x < coll_building.mMin.x)
+					{
+						corner.x = coll_building.mMin.x;
+						handle_corner = true;
+					}
+
+					if (handle_corner)
+					{
+						if (dis_orientation & OR_BOTTOM_TO_TOP)
+						{
+							corner.z = coll_building.mMin.z;
+						}
+						else
+						{
+							CPR_assert(dis_orientation & OR_TOP_TO_BOTTOM, "Huh?");
+							corner.z = coll_building.mMax.z;
+						}
+
+						corner.y = Clamp(coll_building.mMin.y, coll_pos.y, coll_building.mMax.y);
+
+						const cVector3 coll_to_corner = corner - coll_pos;
+						const bool valid_coll = Dot(distance, coll_to_corner) >= 0.0f;
+						if (valid_coll)
+						{
+							out_colliding_normal = Normalize(-coll_to_corner);
+							out_colliding_pos = corner;
+
+							return true;
+						}
+					}
+					else
+					{
+						// Simple collision with a face
+						out_colliding_normal = (dis_orientation & OR_BOTTOM_TO_TOP) ? -cVector3::ZAXIS() : cVector3::ZAXIS();
+						out_colliding_pos = coll_pos - (out_colliding_normal * radius);
+
+						return true;
 					}
 				}
 

@@ -6,19 +6,6 @@
 namespace Debug
 {
 	//----------------------------------------------------------------------------
-	bool HasDebuggerAttached()
-	{
-		if (::IsDebuggerPresent())
-			return true;
-
-		BOOL remote_debugger_present = FALSE;
-		if (FALSE == ::CheckRemoteDebuggerPresent(GetCurrentProcess(), &remote_debugger_present))
-			return false;
-
-		return remote_debugger_present != FALSE;
-	}
-
-	//----------------------------------------------------------------------------
 	void ErrorMsg(const char* file, int line, const char* expr, const char* format, ...)
 	{
 		const int large_enough = 1024;

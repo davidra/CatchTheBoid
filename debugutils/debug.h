@@ -1,6 +1,10 @@
-/*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-/// Debug-related functions
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+/***************************************************************************************************
+debug.h
+
+Debug-related functions
+
+by David Ramos
+***************************************************************************************************/
 #pragma once
 
 #include "core\base.h"
@@ -11,8 +15,6 @@ class cVector3;
 
 namespace Debug
 {
-	bool HasDebuggerAttached();
-
 	void ErrorMsg(const char* file, int line, const char* expr, const char* format, ...);
 
 	void WriteLine(const char* fmt, ...);

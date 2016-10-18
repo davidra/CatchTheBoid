@@ -1,7 +1,11 @@
-/*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-/// Simple Matrix wrapper class mainly destined to hide the ugliness of D3DXMatrix while still being 
-/// interchangeable with it
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+/***************************************************************************************************
+matrix44.h
+
+Simple Matrix wrapper class mainly destined to hide the ugliness of D3DXMatrix while still being
+interchangeable with it
+ 
+by David Ramos
+***************************************************************************************************/
 #pragma once
 
 #include <D3dx9math.h>
@@ -11,6 +15,7 @@ class cMatrix44 : public D3DXMATRIX
 {
 public:
 	cMatrix44() : D3DXMATRIX() {}
+	cMatrix44(const D3DXMATRIX& rhs) : D3DXMATRIX(rhs) {}
 	cMatrix44(const cVector3& axis, float angle);
 	cMatrix44(const cVector3& axis, float angle, const cVector3& translation);
 
@@ -29,15 +34,25 @@ public:
 };
 
 //----------------------------------------------------------------------------
+inline cMatrix44 BuildLookAtMatrix(const cVector3& eye_pos, const cVector3& look_at, const cVector3& up)
+{
+	cMatrix44 result;
+	cVector3 fake_up(-up);
+	D3DXMatrixLookAtLH(&result, &eye_pos, &look_at, &fake_up);
+
+	return result;
+}
+
+//----------------------------------------------------------------------------
 inline cMatrix44::cMatrix44(const cVector3& axis, float angle)
 {
-	SetRotation(axis, angle);
+	D3DXMatrixRotationAxis(this, &axis, angle);
 }
 
 //----------------------------------------------------------------------------
 inline cMatrix44::cMatrix44(const cVector3& axis, float angle, const cVector3& translation)
 {
-	SetRotation(axis, angle);
+	D3DXMatrixRotationAxis(this, &axis, angle);
 	SetTranslation(translation);
 }
 
@@ -68,7 +83,9 @@ inline cVector3	cMatrix44::RotateVector(const cVector3& vector) const
 inline cVector3	cMatrix44::RotateCoord(const cVector3& coord) const
 {
 	cVector3 result;
-	return static_cast<cVector3&>(*D3DXVec3TransformCoord(&result, &coord, this));
+	D3DXVec3TransformCoord(&result, &coord, this);
+
+	return result;
 }
 
 //----------------------------------------------------------------------------

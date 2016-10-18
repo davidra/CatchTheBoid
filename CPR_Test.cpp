@@ -3,11 +3,8 @@
 #include "CPR_Framework.h"
 #include "game/world.h"
 #include "game/player.h"
+#include "game/bullet.h"
 #include "debugutils/debugrenderer.h"
-
-// TODO: Delete these, probably
-float	g_angle = 0.0f;
-extern struct IDirect3DDevice9 * g_pDevice;
 
 
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -40,38 +37,43 @@ extern struct IDirect3DDevice9 * g_pDevice;
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 
-// TODO: Rethink this
-cPlayer gPlayer;
-
 //----------------------------------------------------------------------------
 void OnInit()
 {
 	cWorld::InitInstance("resources/city.txt");
-	gPlayer.Init();
+
+	// Register our game object classes
+	cGameObjectManager::InitInstance();
+	cBullet::RegisterInManager();
+	cPlayer::RegisterInManager();
+
+	cGameObjectManager::GetInstance()->CreateGameObject<cPlayer>(sDefaultPlayerDef, cPlayerState(cVector3(2.0f, sDefaultPlayerDef.mRadius, -12.0f)));
 }
 
 //----------------------------------------------------------------------------
 void OnShutdown()
 {
+	cGameObjectManager::GetInstance()->DestroyAllGameObjects();
 }
 
 //----------------------------------------------------------------------------
 void OnUpdate( float _deltaTime )
 {
-	// TODO: Some update times are coming with 0, investigate what this means to the actual frametime
+	// TODO: Some update times are coming with 0, investigate what this means to the actual framerate
 	if (_deltaTime > 0.0f)
 	{
 		// The debug renderer update will clear debug entries, so make sure it happens before we can add any this frame
 		Debug::cRenderer::Get().Update(_deltaTime);
-
-		gPlayer.Update(_deltaTime);
 	}
+
+	cGameObjectManager::GetInstance()->Update(_deltaTime);
 }
 
 //----------------------------------------------------------------------------
 void OnRender()
 {
 	cWorld::GetInstance()->Render();
-	gPlayer.Render();
+	cGameObjectManager::GetInstance()->Render();
+
 	Debug::cRenderer::Get().Render();
 }

@@ -1,7 +1,11 @@
-/*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-/// Simple Vector3 class mainly destined to hide the ugliness of D3DXVECTOR3 while still being interchangeable
-/// with it
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+/***************************************************************************************************
+vector3.h
+
+Simple Vector3 class mainly destined to hide the ugliness of D3DXVECTOR3 while still being interchangeable
+with it
+
+by David Ramos
+***************************************************************************************************/
 #pragma once
 
 #include <D3dx9math.h>
@@ -23,13 +27,22 @@ public:
 	void SetNormalized();
 	bool IsNormalized() const;
 
-
 	float	Length() const;
 	float	LengthSqr() const;
 
 	cVector2 GetXZ() const;
 
 	bool IsZero() const;
+
+	enum class eAxis
+	{
+		X,
+		Y,
+		Z
+	};
+
+	template <eAxis axis>
+	float Get() const;
 
 	// In newer compiler versions these could be constexpr, here we rely on RVO
 	static cVector3 XAXIS() { return cVector3(1.0f, 0.0f, 0.0f); }
@@ -42,7 +55,8 @@ public:
 inline cVector3 Normalize(const cVector3& v);
 inline float	Dot(const cVector3& lhs, const cVector3& rhs);
 inline cVector3 Cross(const cVector3& lhs, const cVector3& rhs);
-inline cVector3 ProjectVectorOntoPlane(const cVector3& vector, cVector3& plane_normal);
+inline cVector3 ProjectVectorOntoPlane(const cVector3& vector, const cVector3& plane_normal);
+inline cVector3 Multiply(const cVector3& lhs, const cVector3& rhs);
 
 //----------------------------------------------------------------------------	
 inline bool IsSimilar(const cVector3& lhs, const cVector3& rhs, float epsilon = EPSILON)
@@ -113,6 +127,27 @@ inline bool cVector3::IsZero() const
 }
 
 //----------------------------------------------------------------------------
+template <>
+inline float cVector3::Get<cVector3::eAxis::X>() const
+{
+	return x;
+}
+
+//----------------------------------------------------------------------------
+template <>
+inline float cVector3::Get<cVector3::eAxis::Y>() const
+{
+	return y;
+}
+
+//----------------------------------------------------------------------------
+template <>
+inline float cVector3::Get<cVector3::eAxis::Z>() const
+{
+	return z;
+}
+
+//----------------------------------------------------------------------------
 inline cVector3 Normalize(const cVector3& v)
 {
 	cVector3 result;
@@ -139,10 +174,24 @@ inline cVector3 Cross(const cVector3& lhs, const cVector3& rhs)
 }
 
 //----------------------------------------------------------------------------
-inline cVector3 ProjectVectorOntoPlane(const cVector3& vector, cVector3& plane_normal)
+inline cVector3 ProjectVectorOntoPlane(const cVector3& vector, const cVector3& plane_normal)
 {
 	CPR_assert(plane_normal.IsNormalized(), "The plane normal must be normalized!");
 
 	// V||N = N x (V x N)
 	return Cross(plane_normal, Cross(vector, plane_normal));
+}
+
+//----------------------------------------------------------------------------
+inline cVector3 ReflectVectorOntoPlane(const cVector3& vector, const cVector3& plane_normal)
+{
+	CPR_assert(plane_normal.IsNormalized(), "The plane normal must be normalized!");
+
+	return (vector - (plane_normal * Dot(plane_normal, vector) * 2.0f));
+}
+
+//----------------------------------------------------------------------------
+inline cVector3 Multiply(const cVector3& lhs, const cVector3& rhs)
+{
+	return cVector3(lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z);
 }

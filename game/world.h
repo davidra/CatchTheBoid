@@ -1,6 +1,10 @@
-/*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-/// Defining the world (more like city) class
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+/***************************************************************************************************
+world.h
+
+Defining the world (more like city) class, it will also handle collisions 
+ 
+by David Ramos
+***************************************************************************************************/
 #pragma once
 
 class Mesh;
@@ -17,7 +21,7 @@ public:
 	cVector3		StepPlayerCollision(const cVector3& cur_pos, const cVector3& linear_velocity, float radius, float elapsed) const;
 	const cAABB&	GetWorldBoundaries() const { return mCityMatrix.mWorldAABB; }
 
-	bool			CastSphereAgainstWorld(const cVector3& start_pos, const cVector3& desired_pos, float radius, cVector3& out_colliding_pos, cVector3& out_colliding_normal) const;
+	bool			CastSphereAgainstWorld(const cVector3& org_pos, const cVector3& desired_pos, float radius, bool ignore_non_ground_boundaries, cVector3& out_colliding_pos, cVector3& out_colliding_normal) const;
 
 private:
 	cWorld() {}
@@ -65,14 +69,7 @@ private:
 	bool			ParseCityMatrix(const char* city_file, tCityMatrix& city_matrix) const;
 	cAABB			ComputeAABBForRowColumn(unsigned row, unsigned column, float height) const;
 
-	bool			Is2DPointInsideWorld(const cVector2& pos) const;
-	bool			FindCollidingBuilding2D(const cVector2& start_pos, const cVector2& desired_pos, float radius, cAABB& out_colliding_building, cVector2& out_colliding_pos) const;
-	bool			TestCollisionWithBlock2D(const cAABB& block_building_3D, const cVector2& start_pos, const cVector2& desired_pos, const cVector2& movement_dir, float movement_length, float radius, cAABB& out_colliding_building, cVector2& out_colliding_pos) const;
-
 	bool			FindBuildingOverlappingCircle(const cVector3& pos, float radius, cAABB& out_building) const;
-
-	typedef std::vector<cAABB> tBuildingsContainer;
-	void			GetAllBuildingsIntersecting2DLine(const cVector2& start_pos, const cVector2& end_pos, tBuildingsContainer& out_intersected_buildings) const;
 
 	static std::unique_ptr<cWorld> sWorldInstance;
 
